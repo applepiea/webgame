@@ -10,37 +10,34 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "..", "..", "..", "data")
 
 
-# ── 이 시나리오(구미호전 — 내월당의 비밀) 전용 엔딩 분기 알고리즘 ─────────────────────────────
-# GM이 투표 결과와 몇 가지 판정값만 입력하면, 아래 로직이 11개 엔딩 중 어느 것인지 자동으로 계산함.
-# (다른 시나리오를 추가할 때는 이 함수를 시나리오별로 분기하거나 별도 모듈로 빼면 됨)
-def determine_ending_id(most_voted, document_kept=False, fox_accusation_count=0,
-                         dalrae_choice=None, seolhwa_choice=None):
-  """
-  most_voted: 최다 득표 캐릭터 이름 ("연이"/"달래"/"이강"/"이윤"/"설화"/"무백")
-  document_kept: 이강이 그 시점까지 낡은 문서를 보유하고 있었는지 (이강/이윤/무백 최다 득표일 때 사용)
-  fox_accusation_count: 추가 정보에서 "설화가 구미호다"라고 명시한 인원 수 (무백 최다 득표일 때만 사용)
-  dalrae_choice: "seal"(봉인한다) / "no_seal"(봉인하지 않는다) (무백 최다 득표일 때만 사용)
-  seolhwa_choice: "intervene"(개입/도주) / "observe"(방관) (무백 최다 득표, 봉인 조건 아닐 때만 사용)
-  """
-  if most_voted == "이강":
-    return "leegang_1" if document_kept else "leegang_2"
-  if most_voted == "이윤":
-    return "leeyoon_1" if document_kept else "leeyoon_2"
-  if most_voted == "연이":
-    return "yeoni"
-  if most_voted == "달래":
-    return "dalrae"
-  if most_voted == "설화":
-    return "seolhwa"
-  if most_voted == "무백":
-    if fox_accusation_count >= 3 and dalrae_choice == "seal":
-      # 봉인 성립 조건은 구미호 지목 수 + 달래의 선택만으로 정해짐.
-      # 이강의 문서 보유 여부는 "봉인이 되느냐 마느냐"가 아니라, 봉인된 후 그 자리에서
-      # 문서까지 함께 밝혀지는지(moobaek_3, 밝혀진 진실) 아니면 묻힌 채로 끝나는지(moobaek_4, 묻힌 진실)를 가름.
-      return "moobaek_3" if document_kept else "moobaek_4"
-    if seolhwa_choice == "intervene":
-      return "moobaek_1"  # 자비(도주)
-    return "moobaek_2"    # 은폐(방관)
+def _rule_condition_matches(field_key, expected, values):
+  """규칙 조건 하나를 판정값(values)과 비교. field_key에 __gte/__lte/__in 접미사가 붙으면
+  그에 맞는 비교 연산을 하고, 접미사가 없으면 정확히 같은 값인지(등호)를 비교함."""
+  for suffix, op in (("__gte", "gte"), ("__lte", "lte"), ("__in", "in")):
+    if field_key.endswith(suffix):
+      field = field_key[: -len(suffix)]
+      actual = values.get(field)
+      if op == "in":
+        return actual in expected
+      try:
+        actual_num, expected_num = float(actual), float(expected)
+      except (TypeError, ValueError):
+        return False
+      return actual_num >= expected_num if op == "gte" else actual_num <= expected_num
+  return values.get(field_key) == expected
+
+
+def _rule_matches(when, values):
+  return all(_rule_condition_matches(k, v, values) for k, v in (when or {}).items())
+
+
+def evaluate_ending_rules(rules, values):
+  """rules를 위에서부터 순서대로 검사해서, 조건(when)이 전부 맞는 첫 번째 규칙의 result(엔딩 id)를 반환.
+  맞는 규칙이 하나도 없으면 None. 이 함수는 어떤 시나리오의 규칙이 오든 그대로 처리하는 범용 엔진이라,
+  "이강"이니 "구미호"니 하는 이 시나리오만의 개념을 전혀 몰라도 됨 - 그건 전부 endings.json 쪽 데이터임."""
+  for rule in rules or []:
+    if _rule_matches(rule.get("when"), values):
+      return rule.get("result")
   return None
 
 
@@ -189,10 +186,32 @@ def register_ending_handlers(sio, emit_room_state_func):
     await _push_submission_status_to_gm(sio, room_id, room_data)
 
   @sio.event
-  async def compute_ending(sid, data):
-    """GM이 판정값들을 입력하면 분기 알고리즘으로 엔딩을 계산해서, 발표 전에 확인용으로 GM에게만 알려줌"""
+  async def request_ending_form_config(sid, data):
+    """GM 전용 - 판정 입력 폼을 어떻게 그릴지(form_fields)와 판정 규칙(rules)을 요청.
+    이 시나리오만의 엔딩 분기 로직 전체가 여기 담겨있음 (다른 시나리오는 완전히 다른 폼/규칙을 가질 수 있음).
+    스포일러는 아니지만 참여자에게 노출할 이유가 없어서 GM에게만 개별 전송."""
     room_id = data.get("room_id")
     nickname = data.get("nickname")
+
+    if room_id not in rooms:
+      return
+    room_data = rooms[room_id]
+
+    if nickname != room_data.get("gm"):
+      await sio.emit("error", {"msg": "방장만 엔딩 판정 폼을 열람할 수 있습니다."}, to=sid)
+      return
+
+    config = room_data.get("scenario_ending_rules_config") or {"form_fields": [], "rules": []}
+    await sio.emit("ending_form_config", {"form_fields": config.get("form_fields", [])}, to=sid)
+
+  @sio.event
+  async def compute_ending(sid, data):
+    """GM이 (동적으로 그려진 폼에서) 입력한 판정값들을 받아서, 이 시나리오의 규칙(rules)에 따라
+    엔딩을 계산해 발표 전 확인용으로 GM에게만 알려줌. 판정값은 필드 종류/개수가 시나리오마다 달라질 수 있어서
+    정해진 파라미터 목록이 아니라 자유 형식의 values 딕셔너리로 받음."""
+    room_id = data.get("room_id")
+    nickname = data.get("nickname")
+    values = data.get("values") or {}
 
     if room_id not in rooms:
       return
@@ -202,18 +221,11 @@ def register_ending_handlers(sio, emit_room_state_func):
       await sio.emit("error", {"msg": "방장만 엔딩을 계산할 수 있습니다."}, to=sid)
       return
 
-    most_voted = data.get("most_voted")
-
-    ending_id = determine_ending_id(
-        most_voted=most_voted,
-        document_kept=bool(data.get("document_kept")),
-        fox_accusation_count=int(data.get("fox_accusation_count") or 0),
-        dalrae_choice=data.get("dalrae_choice"),
-        seolhwa_choice=data.get("seolhwa_choice"),
-    )
+    config = room_data.get("scenario_ending_rules_config") or {"form_fields": [], "rules": []}
+    ending_id = evaluate_ending_rules(config.get("rules", []), values)
 
     if ending_id is None:
-      await sio.emit("error", {"msg": "최다 득표자를 선택해주세요."}, to=sid)
+      await sio.emit("error", {"msg": "입력한 값으로는 판정되는 엔딩이 없습니다. 값을 다시 확인해주세요."}, to=sid)
       return
 
     endings = room_data.get("scenario_endings", [])
@@ -223,7 +235,7 @@ def register_ending_handlers(sio, emit_room_state_func):
       await sio.emit("error", {"msg": f"계산된 엔딩('{ending_id}')이 endings.json에 없습니다. 데이터를 확인해주세요."}, to=sid)
       return
 
-    logger.info(f"🧮 [compute_ending] {nickname}의 입력값으로 계산된 엔딩: {ending_id}")
+    logger.info(f"🧮 [compute_ending] {nickname}의 입력값({values})으로 계산된 엔딩: {ending_id}")
     await sio.emit("ending_computed", {"id": ending.get("id"), "title": ending.get("title")}, to=sid)
 
   @sio.event

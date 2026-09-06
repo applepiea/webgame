@@ -314,13 +314,14 @@
         .ending-pick-item { background: rgba(0,0,0,0.3); border: 1px solid var(--hairline); border-radius: 4px; padding: 10px 14px; cursor: pointer; font-size: 14px; transition: border-color 0.15s, background 0.15s; }
         .ending-pick-item:hover { border-color: var(--gold); background: rgba(201,162,39,0.1); }
 
-        /* 엔딩 판정 입력 폼 */
+        /* 엔딩 판정 입력 폼 (form_fields 스펙 기반으로 JS가 동적으로 그려넣는 필드들) */
         .ending-form-label { display: block; font-size: 12px; color: var(--ink-muted); margin: 14px 0 6px; }
-        #mostVotedSelect, #foxCountInput, #dalraeChoiceSelect, #seolhwaChoiceSelect {
+        .ending-form-field { margin-bottom: 4px; }
+        .ending-form-select, .ending-form-number {
             width: 100%; padding: 8px 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--hairline);
             border-radius: 4px; color: var(--ink); font-family: 'Noto Sans KR', sans-serif; font-size: 13px;
         }
-        #moobaekExtraFields { border-top: 1px dashed var(--hairline); margin-top: 14px; padding-top: 4px; }
+        .ending-form-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-muted); cursor: pointer; margin-top: 14px; }
         #computeEndingBtn { width: 100%; margin-top: 18px; padding: 10px; background: var(--gold); color: #1a1512; border: none; border-radius: 4px; font-family: 'Noto Serif KR', serif; font-weight: bold; cursor: pointer; }
         #endingComputeResult { text-align: center; padding: 10px 0; }
         #computedEndingTitle { color: var(--gold); font-family: 'Noto Serif KR', serif; }
@@ -329,10 +330,6 @@
         #manualPickDetails { margin-top: 18px; font-size: 12px; color: var(--ink-muted); }
         #manualPickDetails summary { cursor: pointer; }
         #manualPickDetails #endingPickList { margin-top: 10px; }
-
-        /* 이강 최다 득표일 때만 노출되는 문서 보유 여부 체크박스 */
-        #documentKeptField { display: none; margin-top: 14px; }
-        #documentKeptField label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-muted); cursor: pointer; }
 
         /* 결과 발표 페이지 */
         #resultsOverlay { display: none; position: fixed; inset: 0; background: rgba(8,6,5,0.92); z-index: 220; overflow-y: auto; padding: 40px 20px; }
@@ -499,40 +496,9 @@
             <h3>🏮 엔딩 판정</h3>
             <p class="ending-pick-warning">⚠️ 발표하면 되돌릴 수 없고, 전원에게 즉시 공개됩니다.</p>
 
-            <!-- 1단계: 판정값 입력 -->
+            <!-- 1단계: 판정값 입력 (form_fields 스펙 받아서 JS가 동적으로 채워넣음) -->
             <div id="endingComputeForm">
-                <label class="ending-form-label">최다 득표자</label>
-                <select id="mostVotedSelect">
-                    <option value="">-- 선택 --</option>
-                    <option value="연이">연이</option>
-                    <option value="달래">달래</option>
-                    <option value="이강">이강</option>
-                    <option value="이윤">이윤</option>
-                    <option value="설화">설화</option>
-                    <option value="무백">무백</option>
-                </select>
-
-                <div id="documentKeptField">
-                    <label><input type="checkbox" id="documentKeptCheckbox"> 이강이 이 시점까지 낡은 문서를 보유하고 있다</label>
-                </div>
-
-                <div id="moobaekExtraFields" style="display:none;">
-                    <label class="ending-form-label">구미호 지목 수 (추가 정보에 "설화가 구미호다"라고 적은 인원)</label>
-                    <input type="number" id="foxCountInput" min="0" max="6" value="0">
-
-                    <label class="ending-form-label">달래의 선택</label>
-                    <select id="dalraeChoiceSelect">
-                        <option value="no_seal">봉인하지 않는다</option>
-                        <option value="seal">봉인한다</option>
-                    </select>
-
-                    <label class="ending-form-label">설화의 선택 (구미호 지목 3명 미만이거나 달래가 "봉인하지 않는다"를 골랐을 때만 적용)</label>
-                    <select id="seolhwaChoiceSelect">
-                        <option value="observe">방관</option>
-                        <option value="intervene">개입 (도주)</option>
-                    </select>
-                </div>
-
+                <div id="endingFormFieldsContainer"></div>
                 <button id="computeEndingBtn">🧮 엔딩 계산하기</button>
             </div>
 

@@ -1,4 +1,4 @@
-from backend.services.scenario_loader import load_scenario_characters, load_scenario_objects, load_scenario_phase_config, load_scenario_special_items, load_scenario_endings, load_scenario_special_ability_config, load_scenario_ending_visual_theme
+from backend.services.scenario_loader import load_scenario_characters, load_scenario_objects, load_scenario_phase_config, load_scenario_special_items, load_scenario_endings, load_scenario_special_ability_config, load_scenario_ending_visual_theme, load_scenario_ending_rules_config
 from backend.logging_setup import get_logger
 import re
 
@@ -103,6 +103,7 @@ def register_room_handlers(sio, emit_room_state_func):
         "temp_gm": None,     # 방장 연결이 끊겼을 때만 채워지는 임시 방장 (페이즈 넘기기 권한만)
         "player_notes": {},  # 닉네임 → 개인 메모 텍스트 (game_state 밖에 둬서 절대 방 전체로 브로드캐스트 안 됨 - 본인에게만 개별 전송)
         "scenario_endings": load_scenario_endings(scenario_id),  # 전체 엔딩 목록(내용 포함) - game_state 밖에 둬서 발표 전까지 절대 브로드캐스트 안 됨
+        "scenario_ending_rules_config": load_scenario_ending_rules_config(scenario_id),  # 엔딩 판정 폼/규칙 (이 시나리오만의 분기 로직 전체) - GM 전용, game_state 밖
         "feedback": {},       # 닉네임 → {review, difficulty, rating} - 전원 제출 완료 전까지 비공개
         "mvp_votes": {},      # 닉네임 → 투표 대상 닉네임 - 전원 제출 완료 전까지 비공개
         "pending_interrogation": None,  # {"requester": 닉네임, "target": 닉네임} - GM 응답 대기 중 요청 (GM에게만 개별 전송, game_state 밖에 둬서 비공개)

@@ -1202,39 +1202,113 @@ socket.on('ending_revealed', (ending) => {
 });
 
 // ── GM 전용: 엔딩 판정 (판정값 입력 → 자동 계산 → 확인 후 발표) ─────────────────────────────
+// ── GM 전용: 엔딩 판정 폼을 form_fields 스펙 그대로 동적으로 그려주는 범용 렌더러 ─────────────────────────────
+// (필드 종류/개수/조건부 노출은 전부 시나리오의 endings.json 안 form_fields에 달려있고, 여기 코드는
+//  "select/checkbox/number를 어떻게 그리는지"만 알 뿐, "최다 득표자"가 뭔지는 전혀 모름)
+let currentEndingFormFields = [];
+
+function renderEndingFormFields(fields) {
+    currentEndingFormFields = fields;
+    const container = document.getElementById('endingFormFieldsContainer');
+    container.innerHTML = '';
+
+    fields.forEach(field => {
+        const wrap = document.createElement('div');
+        wrap.className = 'ending-form-field';
+        wrap.dataset.fieldKey = field.key;
+        if (field.showIf) {
+            wrap.dataset.showIfField = field.showIf.field;
+            wrap.dataset.showIfSpec = JSON.stringify(field.showIf);
+        }
+
+        if (field.type === 'checkbox') {
+            wrap.innerHTML = `<label class="ending-form-checkbox-label"><input type="checkbox" data-field-input> ${field.label}</label>`;
+        } else if (field.type === 'select') {
+            const optionsHtml = (field.options || []).map(opt => {
+                const value = typeof opt === 'string' ? opt : opt.value;
+                const label = typeof opt === 'string' ? opt : opt.label;
+                return `<option value="${value}">${label}</option>`;
+            }).join('');
+            wrap.innerHTML = `
+                <label class="ending-form-label">${field.label}</label>
+                <select class="ending-form-select" data-field-input>
+                    <option value="">-- 선택 --</option>
+                    ${optionsHtml}
+                </select>
+            `;
+        } else if (field.type === 'number') {
+            wrap.innerHTML = `
+                <label class="ending-form-label">${field.label}</label>
+                <input type="number" class="ending-form-number" data-field-input
+                    min="${field.min ?? ''}" max="${field.max ?? ''}" value="${field.default ?? 0}">
+            `;
+        }
+
+        const input = wrap.querySelector('[data-field-input]');
+        if (input) input.addEventListener('change', updateEndingFormVisibility);
+
+        container.appendChild(wrap);
+    });
+
+    updateEndingFormVisibility(); // showIf가 있는 필드들 초기 표시 여부 반영
+}
+
+// showIf 조건을 보고 필드별로 보이거나 숨김 (equals/in 지원)
+function updateEndingFormVisibility() {
+    const container = document.getElementById('endingFormFieldsContainer');
+    const currentValues = collectEndingFormValues();
+
+    container.querySelectorAll('.ending-form-field').forEach(wrap => {
+        if (!wrap.dataset.showIfSpec) {
+            wrap.style.display = '';
+            return;
+        }
+        const spec = JSON.parse(wrap.dataset.showIfSpec);
+        const actual = currentValues[spec.field];
+        let visible;
+        if ('equals' in spec) visible = actual === spec.equals;
+        else if ('in' in spec) visible = spec.in.includes(actual);
+        else visible = true;
+        wrap.style.display = visible ? '' : 'none';
+    });
+}
+
+// 현재 폼에 그려진 필드들의 값을 전부 모아서 {key: value} 형태로 반환 (타입에 맞게 변환)
+function collectEndingFormValues() {
+    const values = {};
+    document.querySelectorAll('#endingFormFieldsContainer .ending-form-field').forEach(wrap => {
+        const key = wrap.dataset.fieldKey;
+        const fieldSpec = currentEndingFormFields.find(f => f.key === key);
+        const input = wrap.querySelector('[data-field-input]');
+        if (!input || !fieldSpec) return;
+
+        if (fieldSpec.type === 'checkbox') values[key] = input.checked;
+        else if (fieldSpec.type === 'number') values[key] = Number(input.value);
+        else values[key] = input.value;
+    });
+    return values;
+}
+
 document.getElementById('revealEndingBtn').addEventListener('click', () => {
     // 폼 초기 상태로 리셋
     document.getElementById('endingComputeForm').style.display = 'block';
     document.getElementById('endingComputeResult').style.display = 'none';
-    document.getElementById('mostVotedSelect').value = '';
-    document.getElementById('documentKeptField').style.display = 'none';
-    document.getElementById('documentKeptCheckbox').checked = false;
-    document.getElementById('moobaekExtraFields').style.display = 'none';
+    document.getElementById('endingFormFieldsContainer').innerHTML = '';
     document.getElementById('endingPickModal').classList.add('open');
 
+    // 이 시나리오의 판정 폼 스펙을 받아와서 동적으로 그림
+    socket.emit('request_ending_form_config', { room_id: roomId, nickname });
     // 예비 경로(직접 목록에서 고르기)에 쓸 제목 목록도 미리 받아둠
     socket.emit('request_ending_list', { room_id: roomId, nickname });
 });
 
-document.getElementById('mostVotedSelect').addEventListener('change', (e) => {
-    const v = e.target.value;
-    document.getElementById('documentKeptField').style.display = (v === '이강' || v === '이윤' || v === '무백') ? 'block' : 'none';
-    document.getElementById('moobaekExtraFields').style.display = (v === '무백') ? 'block' : 'none';
+socket.on('ending_form_config', (data) => {
+    renderEndingFormFields(data.form_fields || []);
 });
 
 document.getElementById('computeEndingBtn').addEventListener('click', () => {
-    const mostVoted = document.getElementById('mostVotedSelect').value;
-    if (!mostVoted) return alert('최다 득표자를 선택해주세요.');
-
-    socket.emit('compute_ending', {
-        room_id: roomId,
-        nickname,
-        most_voted: mostVoted,
-        document_kept: document.getElementById('documentKeptCheckbox').checked,
-        fox_accusation_count: document.getElementById('foxCountInput').value,
-        dalrae_choice: document.getElementById('dalraeChoiceSelect').value,
-        seolhwa_choice: document.getElementById('seolhwaChoiceSelect').value,
-    });
+    const values = collectEndingFormValues();
+    socket.emit('compute_ending', { room_id: roomId, nickname, values });
 });
 
 let pendingEndingId = null;

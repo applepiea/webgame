@@ -532,6 +532,27 @@ def load_scenario_ending_visual_theme(scenario_id):
     return data.get("visual_theme")
 
 
+def load_scenario_ending_rules_config(scenario_id):
+    """endings.json 최상단의 form_fields(GM 판정 입력 폼을 어떻게 그릴지)와
+    rules(판정값 → 엔딩 id로 매핑하는 규칙, 위에서부터 순서대로 검사해 처음 맞는 것을 씀)를 로드.
+    이 시나리오만의 엔딩 분기 로직 전체가 여기 담겨있어서, ending_handler.py는 이 시나리오가
+    "이강"이니 "구미호"니 하는 걸 전혀 몰라도 됨 - 그냥 규칙을 순서대로 비교하는 범용 엔진만 가짐.
+
+    폼 필드 스펙 자체는 스포일러가 아니지만(어떤 입력을 받는지일 뿐, 엔딩 내용은 아님) 그래도
+    GM 전용으로만 취급 - 참여자에게 굳이 노출할 이유가 없어서 room_data에만 두고 game_state엔 안 넣음.
+    파일이 없거나 form_fields/rules 자체가 없으면 빈 값 반환 (그 시나리오는 자동 판정 기능 없음,
+    GM이 "직접 목록에서 고르기"로 수동 선택해야 함)."""
+    path = os.path.join(DATA_DIR, scenario_id, "endings.json")
+    if not os.path.exists(path):
+        return {"form_fields": [], "rules": []}
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return {
+        "form_fields": data.get("form_fields", []),
+        "rules": data.get("rules", []),
+    }
+
+
 def load_scenario_endings(scenario_id):
     """시나리오 폴더의 endings.json에서 엔딩 목록을 로드.
     발표 전까지 절대 스포일러가 새어나가면 안 되므로, 이 데이터는 room_data(game_state 밖)에만
