@@ -412,3 +412,81 @@ def register_conversation_handlers(sio, emit_room_state_func):
 
     gm = room_data.get("gm")
     await emit_room_state_func(sio, room_id, gm)
+
+  # ── 음성통화 시그널링 (WebRTC, 풀 메시) ─────────────────────────────
+  # 서버는 실제 음성 데이터를 전혀 안 만짐 - 그냥 "연결 정보"(SDP/ICE)를 상대방에게 그대로 전달만 해줌
+  # (음성 데이터 자체는 두 브라우저가 직접 P2P로 주고받음). 그래서 아래 이벤트들은 전부 단순 중계.
+  #
+  # "누구랑 연결돼야 하는가"는 서버가 관리하지 않고, 각 클라이언트가 game_state.conversations를 보고
+  # 스스로 계산함 (밀담 중이면 그 상대만, 아니면 밀담 안 중인 모두) - 그래서 밀담이 성사/종료될 때마다
+  # 서버가 따로 "통화 시작/종료해라" 신호를 보낼 필요가 없음. 클라이언트가 상태 갱신을 받을 때마다
+  # 알아서 재계산해서 필요한 연결은 새로 걸고, 더 이상 필요없는 연결은 스스로 끊음.
+
+  def _are_both_valid_players(room_data, nickname, target_nickname):
+    """엉뚱한 사람한테 신호를 보내는 것만 막는 최소한의 검증 (둘 다 이 방의 캐릭터 보유자인지)"""
+    return (
+        nickname != target_nickname
+        and nickname in room_data["selections"]
+        and target_nickname in room_data["selections"]
+    )
+
+  @sio.event
+  async def voice_call_offer(sid, data):
+    """A가 B에게 연결 제안(SDP offer)을 보내는 걸 B에게 그대로 전달"""
+    room_id = data.get("room_id")
+    nickname = data.get("nickname")
+    target = data.get("target")
+
+    if room_id not in rooms:
+      return
+    room_data = rooms[room_id]
+
+    if not _are_both_valid_players(room_data, nickname, target):
+      return
+
+    await _emit_to_nickname(sio, room_id, target, "voice_call_offer", {"from": nickname, "sdp": data.get("sdp")})
+
+  @sio.event
+  async def voice_call_answer(sid, data):
+    """B가 A의 연결 제안에 응답(SDP answer)한 걸 A에게 그대로 전달"""
+    room_id = data.get("room_id")
+    nickname = data.get("nickname")
+    target = data.get("target")
+
+    if room_id not in rooms:
+      return
+    room_data = rooms[room_id]
+
+    if not _are_both_valid_players(room_data, nickname, target):
+      return
+
+    await _emit_to_nickname(sio, room_id, target, "voice_call_answer", {"from": nickname, "sdp": data.get("sdp")})
+
+  @sio.event
+  async def voice_ice_candidate(sid, data):
+    """WebRTC 연결 중 서로 주고받는 네트워크 후보(ICE candidate)를 그대로 상대방에게 전달"""
+    room_id = data.get("room_id")
+    nickname = data.get("nickname")
+    target = data.get("target")
+
+    if room_id not in rooms:
+      return
+    room_data = rooms[room_id]
+
+    if not _are_both_valid_players(room_data, nickname, target):
+      return
+
+    await _emit_to_nickname(sio, room_id, target, "voice_ice_candidate", {"from": nickname, "candidate": data.get("candidate")})
+
+  @sio.event
+  async def voice_call_end(sid, data):
+    """(둘 중 한쪽이 자기 판단으로) 특정 상대와의 연결을 끊었다고 알려줘서, 상대방도 그 연결만 정리하게 함.
+    보통은 각자 알아서 재계산해서 끊기지만, 연결 오류 등으로 한쪽이 먼저 끊었을 때 상대가 좀 더 빨리 알 수 있게 함."""
+    room_id = data.get("room_id")
+    nickname = data.get("nickname")
+    target = data.get("target")
+
+    if room_id not in rooms:
+      return
+
+    await _emit_to_nickname(sio, room_id, target, "voice_call_end", {"from": nickname})

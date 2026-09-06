@@ -206,6 +206,16 @@
         .talk-btn.talk-accept { background: var(--gold); color: #1a1512; border-color: var(--gold); font-weight: bold; }
         .talk-btn.talk-cancel { color: var(--ink-muted); }
         .talk-btn.talk-end { background: var(--red); color: var(--ink); border-color: var(--red-bright); }
+        /* 음성통화 상태바 (자동 연결이라 별도 버튼 없이, 화면 하단에 상태+음소거만 표시) */
+        #voiceStatusBar {
+            display: none; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+            align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--hairline);
+            border-radius: 24px; padding: 8px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px); z-index: 150; font-size: 12px;
+        }
+        #voiceStatusText { color: var(--ink-muted); }
+        #voiceMuteBtn { background: transparent; border: 1px solid var(--hairline); border-radius: 14px; padding: 4px 12px; color: var(--gold); cursor: pointer; font-size: 12px; font-family: 'Noto Sans KR', sans-serif; }
+        #voiceMuteBtn:hover { background: rgba(201,162,39,0.1); }
         .talk-status { margin-top: 8px; font-size: 11px; color: var(--ink-muted); }
         .talk-status.talk-active { color: var(--gold); font-weight: bold; }
         .talk-status.disabled { opacity: 0.5; }
@@ -572,6 +582,11 @@
 
     <!-- 배경음악 컨트롤 -->
     <audio id="bgmAudio" preload="auto"></audio>
+    <div id="voiceAudioContainer"></div>
+    <div id="voiceStatusBar">
+        <span id="voiceStatusText"></span>
+        <button id="voiceMuteBtn"></button>
+    </div>
     <div id="bgmControl">
         <button id="bgmMuteBtn" title="음소거/해제">🔊</button>
         <input type="range" id="bgmVolume" min="0" max="1" step="0.05" value="0.4" title="음량 조절">

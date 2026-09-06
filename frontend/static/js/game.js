@@ -144,6 +144,7 @@ function applyState() {
     renderBoard();
     renderCharacterBoard();
     renderInventory();
+    reconcileVoicePeers();
 
     // GM에게만 엔딩 발표 버튼 노출 (이미 발표됐으면 숨김)
     const revealBtn = document.getElementById('revealEndingBtn');
@@ -549,6 +550,7 @@ function renderCharacterBoard() {
             if (myConv) {
                 // 이미 진행 중인 밀담은 조사 시간이 끝나도 종료 버튼은 계속 보이게 (페이즈 전환 시 서버가 자동 종료하긴 하지만 방어적으로)
                 talkControlHtml = `<button class="talk-btn talk-end" data-action="end">🤐 밀담 종료</button>`;
+                // 음성통화는 이제 버튼 없이 완전 자동 - 밀담 성사/종료에 맞춰 알아서 연결/해제됨 (reconcileVoicePeers 참고)
             }
         } else if (isInvestigationForTalk) {
             const theirConv = findConversationForUser(userNickname);
@@ -1526,3 +1528,205 @@ socket.on('submission_status_update', (data) => {
         listEl.appendChild(row);
     });
 });
+
+// ── 음성통화 (WebRTC, 풀 메시 - 서버 없이 참여자끼리 직접 P2P 연결) ─────────────────────────────
+// 서버(Socket.IO)는 "연결 정보"(SDP/ICE)만 상대방에게 중계하고, 실제 음성 데이터는
+// 두 브라우저가 직접 주고받음 - 그래서 Cloudflare Tunnel 대역폭이나 우리 서버 성능과 무관함.
+//
+// 동작 원리: 매번 상태가 갱신될 때마다(applyState) "지금 나는 누구랑 연결돼 있어야 하는가"를 다시 계산해서
+// (밀담 중이면 그 상대만, 아니면 밀담 안 중인 모두) 실제 연결 상태를 거기에 맞춰줌. 그래서 밀담이
+// 성사/종료될 때 별도 코드 없이 자동으로 통화 상대가 바뀜 - "밀담 신청·수락 = 통화 신청·수락"이 되는 셈.
+const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }]; // 무료 공개 STUN (연결 성사만 도와줌, 음성 데이터는 안 거침)
+
+let localVoiceStream = null;       // 내 마이크 스트림 (모든 피어 연결에서 공유)
+let micPermissionDenied = false;   // 한 번 거부되면 재접속 전까진 다시 안 물어봄
+let voiceMuted = false;            // 전역 음소거 상태
+const voicePeers = {}; // nickname -> { pc: RTCPeerConnection, audioEl: HTMLAudioElement }
+
+// 지금 이 순간 나와 음성으로 연결돼 있어야 할 사람들의 닉네임 목록을 계산
+// (밀담 중이면 그 상대 한 명, 아니면 밀담 안 중인 다른 참여자 전부)
+function getDesiredVoicePeers() {
+    const otherPlayers = Object.keys(selections).filter(n => n !== nickname && selections[n]);
+    const myConv = findMyConversation();
+
+    if (myConv) {
+        return otherPlayers.filter(n => myConv.participants.includes(n));
+    }
+    return otherPlayers.filter(n => !findConversationForUser(n));
+}
+
+// 상태가 갱신될 때마다 호출 - 원하는 연결 목록과 실제 연결 목록을 비교해서 차이만큼만 걸고/끊음
+async function reconcileVoicePeers() {
+    if (currentGm === nickname) return; // GM은 음성 채널에 안 낌 (밀담 프라이버시 유지)
+
+    const desired = getDesiredVoicePeers();
+    if (desired.length === 0 && Object.keys(voicePeers).length === 0) return; // 할 일 없으면 마이크 권한도 안 물어봄
+
+    if (!localVoiceStream && !micPermissionDenied) {
+        try {
+            localVoiceStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            localVoiceStream.getAudioTracks().forEach(track => { track.enabled = !voiceMuted; });
+            updateVoiceStatusUI();
+        } catch (err) {
+            console.warn('🎙️ [voice] 마이크 권한이 없어 음성통화를 사용할 수 없습니다:', err.message);
+            micPermissionDenied = true;
+            updateVoiceStatusUI();
+            return;
+        }
+    }
+    if (!localVoiceStream) return; // 권한 거부된 상태면 더 진행 안 함
+
+    const desiredSet = new Set(desired);
+
+    // 더 이상 연결돼 있을 필요 없는 상대는 정리
+    Object.keys(voicePeers).forEach(peerNick => {
+        if (!desiredSet.has(peerNick)) closeVoicePeer(peerNick);
+    });
+
+    // 아직 연결 안 된 필요한 상대는 새로 연결 시도
+    // (양쪽 다 이 로직을 동시에 돌리므로, 닉네임을 사전순으로 비교해서 한쪽만 offer를 보내게 함 - 안 그러면 서로 동시에 걸어서 꼬임)
+    desired.forEach(peerNick => {
+        if (!voicePeers[peerNick] && nickname < peerNick) {
+            initiateVoicePeer(peerNick);
+        }
+    });
+
+    updateVoiceStatusUI();
+}
+
+function createVoicePeerConnection(partnerNickname) {
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+
+    pc.onicecandidate = (e) => {
+        if (e.candidate) {
+            socket.emit('voice_ice_candidate', { room_id: roomId, nickname, target: partnerNickname, candidate: e.candidate });
+        }
+    };
+
+    pc.ontrack = (e) => {
+        let audioEl = document.getElementById(`voiceAudio-${partnerNickname}`);
+        if (!audioEl) {
+            audioEl = document.createElement('audio');
+            audioEl.id = `voiceAudio-${partnerNickname}`;
+            audioEl.autoplay = true;
+            document.getElementById('voiceAudioContainer').appendChild(audioEl);
+        }
+        audioEl.srcObject = e.streams[0];
+        audioEl.play().catch(() => {
+            console.warn(`🎙️ [voice] ${partnerNickname}과의 오디오 자동 재생이 막혔습니다.`);
+        });
+        if (voicePeers[partnerNickname]) voicePeers[partnerNickname].audioEl = audioEl;
+    };
+
+    pc.onconnectionstatechange = () => {
+        if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+            closeVoicePeer(partnerNickname);
+        }
+    };
+
+    return pc;
+}
+
+async function initiateVoicePeer(targetNickname) {
+    const pc = createVoicePeerConnection(targetNickname);
+    voicePeers[targetNickname] = { pc, audioEl: null };
+    localVoiceStream.getTracks().forEach(track => pc.addTrack(track, localVoiceStream));
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit('voice_call_offer', { room_id: roomId, nickname, target: targetNickname, sdp: offer });
+}
+
+function closeVoicePeer(peerNick) {
+    const entry = voicePeers[peerNick];
+    if (!entry) return;
+    entry.pc.close();
+    if (entry.audioEl) entry.audioEl.remove();
+    delete voicePeers[peerNick];
+    updateVoiceStatusUI();
+}
+
+// 상대가 먼저 offer를 보낸 경우 (닉네임 비교상 상대가 offer를 보내는 쪽이었던 상황) - 자동으로 응답
+socket.on('voice_call_offer', async (data) => {
+    if (!localVoiceStream && !micPermissionDenied) {
+        try {
+            localVoiceStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            localVoiceStream.getAudioTracks().forEach(track => { track.enabled = !voiceMuted; });
+        } catch (err) {
+            micPermissionDenied = true;
+            updateVoiceStatusUI();
+            return;
+        }
+    }
+    if (!localVoiceStream) return;
+
+    if (voicePeers[data.from]) closeVoicePeer(data.from); // 혹시 남아있던 이전 연결이 있으면 정리하고 새로 맺음
+
+    const pc = createVoicePeerConnection(data.from);
+    voicePeers[data.from] = { pc, audioEl: null };
+    localVoiceStream.getTracks().forEach(track => pc.addTrack(track, localVoiceStream));
+
+    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit('voice_call_answer', { room_id: roomId, nickname, target: data.from, sdp: answer });
+    updateVoiceStatusUI();
+});
+
+socket.on('voice_call_answer', async (data) => {
+    const entry = voicePeers[data.from];
+    if (!entry) return;
+    await entry.pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+});
+
+socket.on('voice_ice_candidate', async (data) => {
+    const entry = voicePeers[data.from];
+    if (!entry) return;
+    try {
+        await entry.pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+    } catch (err) {
+        console.warn('🎙️ [voice] ICE candidate 추가 실패:', err.message);
+    }
+});
+
+socket.on('voice_call_end', (data) => {
+    closeVoicePeer(data.from);
+});
+
+function toggleGlobalVoiceMute() {
+    voiceMuted = !voiceMuted;
+    if (localVoiceStream) {
+        localVoiceStream.getAudioTracks().forEach(track => { track.enabled = !voiceMuted; });
+    }
+    updateVoiceStatusUI();
+}
+
+// 화면 하단에 떠있는 음성 상태 표시줄 갱신 (연결된 인원 수 + 음소거 버튼)
+function updateVoiceStatusUI() {
+    const bar = document.getElementById('voiceStatusBar');
+    if (!bar) return;
+
+    const peerCount = Object.keys(voicePeers).length;
+    const myConv = findMyConversation();
+
+    if (micPermissionDenied) {
+        bar.style.display = 'flex';
+        document.getElementById('voiceStatusText').innerText = '🎙️ 마이크 권한이 없어 음성통화를 쓸 수 없습니다';
+        document.getElementById('voiceMuteBtn').style.display = 'none';
+        return;
+    }
+
+    if (peerCount === 0) {
+        bar.style.display = 'none';
+        return;
+    }
+
+    bar.style.display = 'flex';
+    document.getElementById('voiceMuteBtn').style.display = '';
+    document.getElementById('voiceStatusText').innerText = myConv
+        ? `🎙️ 밀담 상대와 음성 연결됨`
+        : `🎙️ 전체 채널 음성 연결됨 (${peerCount}명)`;
+    document.getElementById('voiceMuteBtn').innerText = voiceMuted ? '🔇 음소거 중' : '🔊 음소거';
+}
+
+document.getElementById('voiceMuteBtn').addEventListener('click', toggleGlobalVoiceMute);
