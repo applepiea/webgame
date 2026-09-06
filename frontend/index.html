@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>머더미스터리 - 로비</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --void: #0d0b0a;
+            --panel: rgba(18, 13, 10, 0.72);
+            --gold: #c9a227;
+            --gold-dim: #8a721f;
+            --red: #7a2323;
+            --red-bright: #9c2f2f;
+            --ink: #e8dfd0;
+            --ink-muted: #a99d87;
+            --hairline: rgba(201, 162, 39, 0.28);
+            --bg-url: none; /* 진짜 기본값: 특정 시나리오에 종속되지 않은 순수 그라데이션 (JS가 시나리오 선택 시 해당 시나리오의 bg.png로 갱신함) */
+            --bg-transition-opacity: 1;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Noto Sans KR', sans-serif;
+            color: var(--ink);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            position: relative;
+            background-color: var(--void);
+        }
+
+        /* 전체 배경: 시나리오별 이미지(--bg-url) + 어두운 그라데이션 오버레이 */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(180deg, rgba(8,6,5,0.55) 0%, rgba(8,6,5,0.85) 60%, rgba(8,6,5,0.96) 100%),
+                var(--bg-url);
+            background-size: cover;
+            background-position: center;
+            transition: opacity 0.4s ease;
+            z-index: -2;
+        }
+
+        /* 촛불처럼 은은하게 숨쉬는 글로우 (시그니처 요소) */
+        .candle-glow {
+            position: fixed;
+            top: 38%;
+            left: 50%;
+            width: 640px;
+            height: 640px;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, rgba(201,162,39,0.16) 0%, rgba(201,162,39,0) 65%);
+            z-index: -1;
+            animation: breathe 5s ease-in-out infinite;
+        }
+
+        @keyframes breathe {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .candle-glow { animation: none; }
+        }
+
+        .stage { width: 100%; max-width: 420px; text-align: center; }
+
+        .eyebrow {
+            font-size: 12px;
+            letter-spacing: 4px;
+            color: var(--gold);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            font-family: 'Noto Serif KR', serif;
+            font-weight: 700;
+            font-size: 34px;
+            margin: 0 0 4px;
+            letter-spacing: 2px;
+            line-height: 1.25;
+        }
+
+        .sub-title {
+            font-family: 'Noto Serif KR', serif;
+            font-size: 15px;
+            color: var(--gold);
+            letter-spacing: 3px;
+            margin: 0 0 14px;
+        }
+        .sub-title::before, .sub-title::after {
+            content: '—';
+            margin: 0 8px;
+            opacity: 0.6;
+        }
+
+        .tagline {
+            font-size: 13px;
+            color: var(--ink-muted);
+            margin: 0 0 28px;
+            font-family: 'Noto Serif KR', serif;
+        }
+
+        .box {
+            background: var(--panel);
+            border: 1px solid var(--hairline);
+            border-radius: 4px;
+            padding: 28px 26px 26px;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            text-align: left;
+        }
+
+        .field-label {
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: var(--ink-muted);
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 14px;
+            margin-bottom: 18px;
+            font-size: 15px;
+            font-family: 'Noto Sans KR', sans-serif;
+            background: rgba(0,0,0,0.35);
+            border: 1px solid var(--hairline);
+            border-radius: 3px;
+            color: var(--ink);
+        }
+
+        input::placeholder { color: rgba(232, 223, 208, 0.4); }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
+        }
+
+        select { cursor: pointer; }
+        select option { background: #1a1512; color: var(--ink); }
+
+        .btn-row { display: flex; gap: 10px; margin-top: 4px; }
+
+        button {
+            flex: 1;
+            padding: 13px 10px;
+            font-size: 15px;
+            font-family: 'Noto Serif KR', serif;
+            font-weight: 500;
+            border-radius: 3px;
+            cursor: pointer;
+            letter-spacing: 1px;
+            transition: transform 0.15s, box-shadow 0.15s, background-color 0.15s;
+        }
+
+        button:focus-visible {
+            outline: 2px solid var(--gold);
+            outline-offset: 2px;
+        }
+
+        /* 방 만들기: 인장(도장)을 연상시키는 강조 버튼 */
+        #createBtn {
+            background: var(--red);
+            color: var(--ink);
+            border: 1px solid var(--red-bright);
+        }
+        #createBtn:hover { background: var(--red-bright); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(122,35,35,0.4); }
+
+        /* 방 들어가기: 절제된 보조 버튼 */
+        #joinBtn {
+            background: transparent;
+            color: var(--gold);
+            border: 1px solid var(--gold-dim);
+        }
+        #joinBtn:hover { background: rgba(201,162,39,0.1); transform: translateY(-1px); }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 4px 0 18px;
+            color: var(--ink-muted);
+            font-size: 11px;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--hairline);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="candle-glow"></div>
+
+    <div class="stage">
+        <div class="eyebrow">어른이집 머더 미스터리 롤플레잉</div>
+        <h1>구미호전</h1>
+        <div class="sub-title">내월당의 비밀</div>
+        <p class="tagline">그날 밤, 무슨 일이 있었는가</p>
+
+        <div class="box">
+            <span class="field-label">닉네임</span>
+            <input type="text" id="nickname" placeholder="이름을 입력하세요">
+
+            <span class="field-label">방 이름</span>
+            <input type="text" id="roomId" placeholder="예: 어른이집">
+
+            <div class="divider">방 만들기 시에만 적용</div>
+
+            <span class="field-label">시나리오 선택</span>
+            <select id="scenarioSelect"></select>
+
+            <div class="btn-row">
+                <button id="createBtn" onclick="createRoom()">방 만들기</button>
+                <button id="joinBtn" onclick="joinRoom()">방 들어가기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io(); // 현재 접속한 주소(로컬/ngrok 등)로 자동 연결
+
+        // 디버깅용: 소켓 연결 상태를 콘솔에서 바로 확인할 수 있게
+        socket.on('connect', () => {
+            console.log('✅ [socket] 서버에 연결됨. socket.id =', socket.id);
+        });
+        socket.on('connect_error', (err) => {
+            console.error('❌ [socket] 연결 실패:', err.message);
+        });
+        socket.on('disconnect', (reason) => {
+            console.warn('⚠️ [socket] 연결 끊김:', reason);
+        });
+        const DEFAULT_BG_URL = 'none'; // 어떤 시나리오의 bg.png도 없을 때 쓰는 진짜 기본값 (특정 시나리오에 종속 안 됨)
+
+        // 시나리오 id에 맞는 배경 이미지로 전환. 파일이 없으면 기본 배경으로 fallback.
+        function setBackgroundForScenario(scenarioId) {
+            const path = `/data/${scenarioId}/images/bg.png`;
+            const preload = new Image();
+            preload.onload = () => {
+                document.documentElement.style.setProperty('--bg-url', `url('${path}')`);
+            };
+            preload.onerror = () => {
+                console.warn(`배경 이미지 없음: ${path} → 기본 배경 사용`);
+                document.documentElement.style.setProperty('--bg-url', DEFAULT_BG_URL);
+            };
+            preload.src = path;
+        }
+
+        // 사용 가능한 시나리오 목록 불러와서 드롭다운 채우기
+        async function loadScenarios() {
+            try {
+                const res = await fetch('/api/scenarios');
+                const scenarios = await res.json();
+                const select = document.getElementById('scenarioSelect');
+                select.innerHTML = '';
+
+                if (scenarios.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.textContent = '사용 가능한 시나리오가 없습니다';
+                    opt.disabled = true;
+                    select.appendChild(opt);
+                    return;
+                }
+
+                scenarios.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = s.title || s.id;
+                    select.appendChild(opt);
+                });
+
+                // 첫 항목 기준으로 배경을 바로 세팅
+                setBackgroundForScenario(select.value);
+            } catch (e) {
+                console.error('시나리오 목록 로드 실패:', e);
+            }
+        }
+        loadScenarios();
+
+        // 드롭다운 선택이 바뀔 때마다 배경도 같이 전환
+        document.getElementById('scenarioSelect').addEventListener('change', (e) => {
+            setBackgroundForScenario(e.target.value);
+        });
+
+        function createRoom() {
+            const nickname = document.getElementById('nickname').value;
+            const roomId = document.getElementById('roomId').value;
+            const scenarioId = document.getElementById('scenarioSelect').value;
+            console.log('🖱️ [클릭] 방 만들기 -> socket.connected =', socket.connected, ', nickname =', nickname, ', roomId =', roomId, ', scenarioId =', scenarioId);
+            if(!nickname || !roomId) return alert('닉네임과 방 이름을 입력하세요!');
+            if(!scenarioId) return alert('시나리오를 선택하세요!');
+
+            socket.emit('create_room', { nickname, room_id: roomId, scenario_id: scenarioId });
+        }
+
+        function joinRoom() {
+            const nickname = document.getElementById('nickname').value;
+            const roomId = document.getElementById('roomId').value;
+            console.log('🖱️ [클릭] 방 들어가기 -> socket.connected =', socket.connected, ', nickname =', nickname, ', roomId =', roomId);
+            if(!nickname || !roomId) return alert('닉네임과 방 이름을 입력하세요!');
+            
+            socket.emit('join_room', { nickname, room_id: roomId });
+        }
+
+        // 방 입장 성공 시 세션스토리지에 정보 저장하고 room.html 페이지로 이동!
+        socket.on('room_joined', (data) => {
+            sessionStorage.setItem('roomId', data.room_id);
+            sessionStorage.setItem('nickname', document.getElementById('nickname').value);
+            sessionStorage.setItem('scenarioId', data.scenario_id || 'scenario_01');
+            window.location.href = '/room'; // 백엔드에서 서빙하는 대기실 페이지로 이동
+        });
+
+        socket.on('error', (data) => {
+            alert(data.msg);
+        });
+    </script>
+</body>
+</html>

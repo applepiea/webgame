@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>머더미스터리 - 캐릭터 선택 대기실</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Socket.io CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --void: #0d0b0a;
+            --panel: rgba(18, 13, 10, 0.72);
+            --panel-soft: rgba(30, 23, 18, 0.6);
+            --gold: #c9a227;
+            --gold-dim: #8a721f;
+            --red: #7a2323;
+            --red-bright: #9c2f2f;
+            --ink: #e8dfd0;
+            --ink-muted: #a99d87;
+            --hairline: rgba(201, 162, 39, 0.28);
+            --bg-url: url('/data/scenario_01/images/bg.png'); /* 기본값, JS가 실제 시나리오로 갱신함 */
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            color: var(--ink);
+            padding: 40px 24px;
+            position: relative;
+            background-color: var(--void);
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(180deg, rgba(8,6,5,0.6) 0%, rgba(8,6,5,0.88) 60%, rgba(8,6,5,0.97) 100%),
+                var(--bg-url);
+            background-size: cover;
+            background-position: center;
+            transition: opacity 0.4s ease;
+            z-index: -1;
+        }
+
+        h1, h2, h3, h4 { font-family: 'Noto Serif KR', serif; }
+
+        #roomTitle { font-size: 22px; letter-spacing: 1px; margin: 0 0 4px; }
+
+        .container { display: flex; gap: 20px; max-width: 1200px; margin: auto; align-items: flex-start; }
+
+        /* 왼쪽 대기실 박스는 비율을 줄이고, 오른쪽 캐릭터 박스는 넓게 */
+        .lobby-box, .char-box {
+            background: var(--panel);
+            border: 1px solid var(--hairline);
+            border-radius: 4px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+            backdrop-filter: blur(6px);
+        }
+        .lobby-box { padding: 22px; flex: 0.8; }
+        .char-box { padding: 26px; flex: 2; }
+
+        hr { border: none; border-top: 1px solid var(--hairline); margin: 14px 0; }
+
+        ul { padding-left: 0; margin: 0; list-style: none; }
+        li { margin-bottom: 8px; font-size: 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px 8px; border-radius: 3px; background: rgba(0,0,0,0.2); }
+        .my-name { font-weight: bold; color: var(--gold); background: rgba(201,162,39,0.1); }
+        .gm-badge { background-color: var(--red); color: var(--ink); padding: 2px 7px; border-radius: 3px; font-size: 11px; letter-spacing: 0.5px; }
+        .transfer-btn { background: transparent; color: var(--ink-muted); border: 1px solid var(--hairline); border-radius: 3px; font-size: 11px; padding: 3px 8px; cursor: pointer; }
+        .transfer-btn:hover { border-color: var(--gold); color: var(--gold); }
+        .kick-btn { background: transparent; color: #c96a5a; border: 1px solid rgba(201,106,90,0.4); border-radius: 3px; font-size: 11px; padding: 3px 8px; cursor: pointer; }
+        .kick-btn:hover { background: rgba(201,106,90,0.15); border-color: #c96a5a; }
+
+        .char-box h3 { margin: 0 0 4px; font-size: 18px; letter-spacing: 0.5px; }
+        .char-box > p { font-size: 13px; color: var(--ink-muted); margin: 0 0 14px; }
+
+        /* 캐릭터 카드: 이미지가 크게 보이도록 카드/이미지 크기 확대 */
+        .char-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 15px; }
+        .char-card { border: 1px solid var(--hairline); border-radius: 6px; padding: 12px; text-align: center; cursor: pointer; background: rgba(0,0,0,0.25); transition: 0.2s; }
+        .char-card:hover { border-color: var(--gold); background: rgba(201,162,39,0.08); transform: translateY(-2px); }
+        .char-card.selected-by-me { border-color: var(--gold); background: rgba(201,162,39,0.14); box-shadow: 0 0 0 1px var(--gold) inset; }
+        .char-card img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 6px; margin-bottom: 10px; background: #2a2119; }
+        .char-card h4 { margin: 0 0 8px 0; color: var(--ink); font-size: 15px; font-weight: 500; }
+        .assigned-users { font-size: 12px; color: var(--ink-muted); min-height: 18px; }
+
+        @media (max-width: 700px) {
+            .container { flex-direction: column; }
+            .char-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        button {
+            padding: 11px; border: none; border-radius: 3px; font-size: 14px; cursor: pointer;
+            font-family: 'Noto Serif KR', serif; letter-spacing: 0.5px; transition: transform 0.15s, background-color 0.15s;
+        }
+        button:hover { transform: translateY(-1px); }
+        #randomBtn { background: transparent; color: var(--gold); border: 1px solid var(--gold-dim); }
+        #randomBtn:hover { background: rgba(201,162,39,0.1); }
+        #nextBtn { background: var(--red); color: var(--ink); display: none; border: 1px solid var(--red-bright); }
+        #nextBtn:hover { background: var(--red-bright); }
+        #leaveBtn { background: transparent; color: var(--ink-muted); border: 1px solid var(--hairline); }
+        #leaveBtn:hover { color: #c96a5a; border-color: #c96a5a; }
+
+        /* 배경음악 컨트롤 (오른쪽 하단 고정) */
+        #bgmControl { position: fixed; bottom: 16px; right: 16px; z-index: 200; display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--hairline); border-radius: 20px; padding: 6px 12px; backdrop-filter: blur(6px); box-shadow: 0 8px 20px rgba(0,0,0,0.35); }
+        #bgmMuteBtn { background: none; border: none; color: var(--ink); font-size: 16px; cursor: pointer; padding: 2px; line-height: 1; }
+        #bgmVolume { width: 70px; accent-color: var(--gold); cursor: pointer; }
+        #bgmPlayHint { display: none; background: var(--gold); color: #1a1512; border: none; border-radius: 12px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: 'Noto Serif KR', serif; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 왼쪽: 참여자 목록 및 제어 버튼 -->
+        <div class="lobby-box">
+            <h2 id="roomTitle">대기실</h2>
+            <p>내 닉네임: <span id="myNicknameDisplay" class="my-name"></span></p>
+            <hr>
+            <p><strong>참여자 목록 및 선택 현황:</strong></p>
+            <ul id="userList"></ul>
+
+            <div class="btn-group">
+                <button id="randomBtn">모두 랜덤 선택</button>
+                <button id="nextBtn">다음 단계로 넘어가기</button>
+                <button id="leaveBtn">나가기</button>
+            </div>
+        </div>
+
+        <!-- 오른쪽: 캐릭터 선택지 -->
+        <div class="char-box">
+            <h3>캐릭터 선택</h3>
+            <p>원하는 캐릭터를 클릭하세요.</p>
+            <div class="char-grid" id="charGrid"></div>
+        </div>
+    </div>
+
+    <!-- 배경음악 컨트롤 -->
+    <audio id="bgmAudio" preload="auto"></audio>
+    <div id="bgmControl">
+        <button id="bgmMuteBtn" title="음소거/해제">🔊</button>
+        <input type="range" id="bgmVolume" min="0" max="1" step="0.05" value="0.4" title="음량 조절">
+        <button id="bgmPlayHint" title="음악 재생">▶ 음악 재생</button>
+    </div>
+
+    <!-- 🚀 대기실 전용 자바스크립트 파일 로드 -->
+    <script type="module" src="/static/js/room.js"></script>
+</body>
+</html>

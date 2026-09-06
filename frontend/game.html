@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>머더미스터리 - 게임 진행</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --void: #0d0b0a;
+            --panel: rgba(18, 13, 10, 0.72);
+            --gold: #c9a227;
+            --gold-dim: #8a721f;
+            --red: #7a2323;
+            --red-bright: #9c2f2f;
+            --ink: #e8dfd0;
+            --ink-muted: #a99d87;
+            --hairline: rgba(201, 162, 39, 0.28);
+            --bg-url: url('/data/scenario_01/images/bg.png'); /* 기본값, JS가 실제 시나리오로 갱신함 */
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Noto Sans KR', sans-serif; margin: 0; background-color: var(--void); color: var(--ink); position: relative; }
+        h2, h3, h4 { font-family: 'Noto Serif KR', serif; }
+
+        /* 다크 테마에 맞춘 스크롤바 (webkit) */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(201, 162, 39, 0.35); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(201, 162, 39, 0.55); }
+        * { scrollbar-width: thin; scrollbar-color: rgba(201, 162, 39, 0.35) transparent; }
+
+        /* 전체 배경 이미지 (콘텐츠 뒤에 고정, 시나리오별로 전환됨) */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(180deg, rgba(8,6,5,0.35) 0%, rgba(8,6,5,0.6) 100%),
+                var(--bg-url);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            transition: opacity 0.4s ease;
+            z-index: -1;
+        }
+
+        /* 상단 바 */
+        #topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--hairline); backdrop-filter: blur(8px); gap: 20px; flex-wrap: wrap; }
+        #gmStatusBanner { background: rgba(122,35,35,0.5); color: #ffd7d7; text-align: center; padding: 8px; font-size: 12px; letter-spacing: 0.2px; }
+        #gmStatusBanner.ending-revealed { background: rgba(201,162,39,0.35); color: #ffe9b0; }
+        #topbar h2 { margin: 0; font-size: 17px; letter-spacing: 0.5px; }
+        #topbar .info { font-size: 13px; color: var(--ink-muted); margin-top: 3px; }
+        .topbar-right { display: flex; align-items: center; gap: 10px; }
+        #inventoryToggleBtn { background: var(--red); color: var(--ink); border: 1px solid var(--red-bright); border-radius: 4px; padding: 9px 16px; cursor: pointer; font-size: 13px; font-family: 'Noto Serif KR', serif; transition: background 0.15s, transform 0.15s; }
+        #inventoryToggleBtn:hover { background: var(--red-bright); transform: translateY(-1px); }
+        #noteToggleBtn { background: transparent; color: var(--gold); border: 1px solid var(--gold-dim); border-radius: 4px; padding: 9px 16px; cursor: pointer; font-size: 13px; font-family: 'Noto Serif KR', serif; transition: background 0.15s, transform 0.15s; }
+        #noteToggleBtn:hover { background: rgba(201,162,39,0.1); transform: translateY(-1px); }
+
+        /* 개인 메모 패널 */
+        #notePanel { display: none; position: fixed; top: 70px; right: 16px; width: 300px; max-width: calc(100vw - 32px); background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; box-shadow: 0 12px 30px rgba(0,0,0,0.45); backdrop-filter: blur(8px); z-index: 90; padding: 14px; }
+        #notePanel.open { display: block; }
+        #notePanel h4 { margin: 0 0 8px; font-size: 13px; color: var(--gold); font-family: 'Noto Serif KR', serif; }
+        #notePanel textarea { width: 100%; height: 220px; resize: vertical; background: rgba(0,0,0,0.35); border: 1px solid var(--hairline); border-radius: 4px; color: var(--ink); font-family: 'Noto Sans KR', sans-serif; font-size: 13px; padding: 10px; line-height: 1.6; }
+        #noteSaveStatus { font-size: 10px; color: var(--ink-muted); margin-top: 6px; text-align: right; }
+
+        /* GM 전용 현황판 (버튼 스타일은 noteToggleBtn과 동일 계열) */
+        #statusBoardToggleBtn { background: transparent; color: var(--gold); border: 1px solid var(--gold-dim); border-radius: 4px; padding: 9px 16px; cursor: pointer; font-size: 13px; font-family: 'Noto Serif KR', serif; transition: background 0.15s; }
+        #statusBoardToggleBtn:hover { background: rgba(201,162,39,0.1); }
+        #statusBoardPanel { display: none; position: fixed; top: 70px; right: 16px; width: 320px; max-width: calc(100vw - 32px); max-height: 70vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; box-shadow: 0 12px 30px rgba(0,0,0,0.45); backdrop-filter: blur(8px); z-index: 90; padding: 14px; }
+        #statusBoardPanel.open { display: block; }
+        #statusBoardPanel h4 { margin: 0 0 10px; font-size: 13px; color: var(--gold); font-family: 'Noto Serif KR', serif; }
+        .status-board-row { background: rgba(0,0,0,0.25); border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; font-size: 12px; }
+        .status-board-row .sbr-name { color: var(--gold); font-weight: bold; margin-bottom: 4px; }
+        .status-board-row .sbr-ids { color: var(--ink-muted); }
+        .status-board-row .sbr-location-group { color: var(--ink-muted); font-size: 11px; margin-top: 4px; line-height: 1.5; }
+        .status-board-row .sbr-location-label { color: #d9b96a; }
+
+        /* 이윤 심문 신청 버튼 (참여자 카드) */
+        .interrogate-btn { background: transparent; border-color: #a05a2c; color: #e0a86a; }
+        .interrogate-btn:hover { background: rgba(160,90,44,0.2); }
+
+        /* GM 전용 심문 승인/거절 모달 */
+        #interrogationModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 260; align-items: center; justify-content: center; padding: 24px; }
+        #interrogationModal.open { display: flex; }
+        #interrogationModalContent { width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 24px; backdrop-filter: blur(8px); }
+        #interrogationModalContent h3 { margin: 0 0 12px; font-family: 'Noto Serif KR', serif; color: var(--gold); }
+        #interrogationModalText { font-size: 13px; line-height: 1.6; margin-bottom: 20px; }
+        #interrogationModalButtons { display: flex; gap: 10px; }
+        #interrogationAcceptBtn, #interrogationRejectBtn { flex: 1; padding: 10px; border-radius: 4px; font-family: 'Noto Serif KR', serif; font-size: 14px; cursor: pointer; }
+        #interrogationAcceptBtn { background: var(--gold); color: #1a1512; border: none; font-weight: bold; }
+        #interrogationRejectBtn { background: transparent; color: var(--ink-muted); border: 1px solid var(--hairline); }
+
+        /* 페이즈/타이머 블록 */
+        #phaseBlock { text-align: center; }
+        #phaseName { font-family: 'Noto Serif KR', serif; font-size: 15px; color: var(--gold); letter-spacing: 0.5px; }
+        #phaseTimer { font-size: 22px; font-weight: bold; font-variant-numeric: tabular-nums; margin-top: 2px; color: var(--ink); }
+        #phaseTimer.time-up { color: #e05a5a; animation: pulse-timer 1.2s ease-in-out infinite; }
+        @keyframes pulse-timer { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        #phaseNote { font-size: 11px; color: var(--ink-muted); margin-top: 2px; }
+
+        #advancePhaseBtn { background: var(--gold); color: #1a1512; border: 1px solid var(--gold); border-radius: 4px; padding: 9px 16px; cursor: pointer; font-size: 13px; font-family: 'Noto Serif KR', serif; font-weight: bold; transition: background 0.15s, transform 0.15s; }
+        #advancePhaseBtn:hover { background: #e0bc3a; transform: translateY(-1px); }
+
+        /* 메인 레이아웃: 보드(넓게) + 참여자 세로 목록(좁게) */
+        #mainLayout { display: flex; gap: 16px; padding: 16px 20px 100px; align-items: flex-start; }
+        #boardColumn { flex: 1; min-width: 0; }
+        #characterColumn { flex: 0 0 160px; width: 160px; display: flex; flex-direction: column; gap: 10px; }
+
+        /* 보드 프레임 (오브젝트들이 칸으로 박혀있는 카드 형태, 모든 구역이 한 화면에 쭉 나열됨) */
+        .board-frame { background: var(--panel); backdrop-filter: blur(3px); border: 1px solid var(--hairline); border-radius: 6px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+        .zone-category-block { margin-bottom: 22px; }
+        .zone-category-block:last-child { margin-bottom: 0; }
+        .zone-category-title { color: var(--gold); font-family: 'Noto Serif KR', serif; font-size: 15px; letter-spacing: 0.5px; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--hairline); }
+        .zone-section { margin-bottom: 14px; }
+        .zone-section:last-child { margin-bottom: 0; }
+        .zone-section-title { color: var(--ink-muted); font-size: 11px; font-weight: 500; margin-bottom: 6px; letter-spacing: 0.3px; }
+        .zone-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .zone-grid .obj-card { flex: 0 0 auto; }
+        #mapDetailGrid { display: flex; flex-direction: column; gap: 10px; }
+        .obj-card { width: 72px; background: rgba(0,0,0,0.3); border: 1px solid var(--hairline); border-radius: 4px; padding: 2px; cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; position: relative; }
+        .obj-card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.35); }
+        .obj-card.locked-phase { cursor: default; opacity: 0.45; }
+        .obj-card.locked-phase:hover { border-color: var(--hairline); transform: none; box-shadow: none; }
+        .lock-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; background: rgba(0,0,0,0.3); border-radius: 3px; }
+        .obj-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 2px; background: #2a2119; display: block; }
+        .obj-card.owned-by-other { opacity: 0.3; cursor: default; }
+        .obj-card.owned-by-other:hover { border-color: var(--hairline); transform: none; box-shadow: none; }
+
+        /* 지도 클릭 보드 */
+        #mapWrap { position: relative; width: 90%; max-width: 90%; margin: 0 auto; border-radius: 6px; overflow: hidden; border: 1px solid var(--hairline); }
+        #mapImage { width: 100%; display: block; }
+        #mapHotspots { position: absolute; inset: 0; }
+        .map-hotspot {
+            position: absolute; border: 2px solid transparent; border-radius: 6px;
+            background: rgba(201,162,39,0); cursor: pointer; transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+        .map-hotspot:hover, .map-hotspot.active { background: rgba(201,162,39,0.22); border-color: var(--gold); box-shadow: 0 0 10px rgba(201,162,39,0.5); }
+        .map-hotspot-badge {
+            position: absolute; top: -8px; right: -8px; background: var(--red); color: var(--ink);
+            font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 10px; pointer-events: none;
+            border: 1px solid var(--red-bright); box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+
+        /* 인터뷰(물리적 장소가 없는 카드) 칩 목록 */
+        #interviewChipRow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+        .interview-chip {
+            background: rgba(0,0,0,0.3); border: 1px solid var(--hairline); border-radius: 16px;
+            padding: 6px 14px; font-size: 12px; color: var(--ink-muted); cursor: pointer; transition: 0.15s;
+        }
+        .interview-chip:hover, .interview-chip.active { border-color: var(--gold); color: var(--gold); }
+
+        /* 선택한 장소의 단서 상세 패널 */
+        #mapDetailPanel { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--hairline); min-height: 60px; }
+        #mapDetailPanel.has-room-bg {
+            padding: 16px; border-radius: 8px; background-size: cover; background-position: center;
+            background-blend-mode: darken; background-color: rgba(10,8,6,0.6);
+            transition: background-image 0.3s ease;
+        }
+        .zone-section.has-room-bg {
+            padding: 10px; border-radius: 6px; background-size: cover; background-position: center;
+            background-blend-mode: darken; background-color: rgba(10,8,6,0.55);
+        }
+        #mapDetailTitle { font-family: 'Noto Serif KR', serif; color: var(--gold); font-size: 14px; margin-bottom: 10px; }
+
+        /* 참여자 목록 (오른쪽 세로 바) */
+        #characterColumn h3 { font-size: 12px; margin: 0 0 4px; color: var(--ink-muted); letter-spacing: 0.5px; text-transform: uppercase; }
+        .participant-row { background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 10px 8px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+        .participant-row:hover { border-color: var(--gold-dim); }
+        .participant-row.is-me { border-color: var(--gold); background: rgba(201,162,39,0.08); }
+        .participant-row img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: #2a2119; margin-bottom: 5px; border: 1px solid var(--hairline); }
+        .participant-row .pname { font-size: 12px; font-weight: bold; }
+        .participant-row .pnick { font-size: 10px; color: var(--ink-muted); margin-top: 1px; }
+        .participant-row .pcount { font-size: 10px; color: var(--gold); margin-top: 4px; }
+        .participant-items { display: none; flex-wrap: wrap; gap: 4px; margin-top: 8px; justify-content: center; }
+        .participant-items.open { display: flex; }
+        .participant-items img { width: 22px; height: 29px; border-radius: 3px; object-fit: cover; border: 1px solid var(--hairline); }
+        .participant-items img.clickable { cursor: pointer; transition: transform 0.15s; }
+        .participant-items img.clickable:hover { transform: translateY(-2px); border-color: var(--gold); }
+        .participant-items img.locked { cursor: default; opacity: 0.7; }
+
+        /* 인벤토리 패널 (하단 고정 서랍) */
+        #inventoryPanel { position: fixed; bottom: 0; left: 0; right: 0; background: var(--panel); backdrop-filter: blur(8px); border-top: 1px solid var(--gold); transform: translateY(calc(100% - 48px)); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 50; max-height: 60vh; display: flex; flex-direction: column; box-shadow: 0 -12px 30px rgba(0,0,0,0.5); }
+        #inventoryPanel.open { transform: translateY(0); }
+        #inventoryPanel::before { content: ''; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 36px; height: 3px; border-radius: 2px; background: var(--hairline); }
+        #inventoryHeader { padding: 14px 20px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        #inventoryHeader h3 { margin: 0; font-size: 14px; }
+        #inventoryCount { font-size: 12px; color: var(--ink-muted); }
+        #inventoryItems { display: flex; gap: 12px; padding: 4px 20px 18px; overflow-x: auto; }
+        .inv-item { flex: 0 0 auto; width: 82px; text-align: center; }
+        .inv-badge { font-size: 10px; padding: 3px 6px; border-radius: 4px; margin-top: 5px; display: inline-block; }
+        .inv-badge.borrowed { background: rgba(201,162,39,0.2); color: var(--gold); }
+        .inv-badge.loaned { background: rgba(122,35,35,0.3); color: #e08787; }
+        .inv-badge.unviewed { background: rgba(33,150,243,0.2); color: #7ec1f0; }
+        .inv-action-btn.unclaim { color: #c96a5a; border-color: rgba(201,106,90,0.4); }
+        .inv-action-btn.unclaim:hover { background: rgba(201,106,90,0.15); border-color: #c96a5a; color: #c96a5a; }
+        .inv-action-btn.give-btn { color: var(--gold); border-color: var(--gold-dim); font-weight: bold; }
+        .inv-action-btn.give-btn:hover { background: rgba(201,162,39,0.15); border-color: var(--gold); }
+        .inv-action-btn { display: block; width: 100%; margin-top: 6px; font-size: 11px; padding: 5px; border-radius: 4px; border: 1px solid var(--hairline); background: transparent; color: var(--ink-muted); cursor: pointer; font-family: 'Noto Sans KR', sans-serif; transition: border-color 0.15s, color 0.15s; }
+        .inv-action-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+        /* 밀담 버튼/상태 (참여자 카드 하단) */
+        .talk-btn { display: block; width: 100%; margin-top: 8px; font-size: 11px; padding: 5px 4px; border-radius: 5px; border: 1px solid var(--hairline); background: transparent; color: var(--gold); cursor: pointer; font-family: 'Noto Sans KR', sans-serif; transition: background 0.15s; }
+        .talk-btn.talk-invite:hover { background: rgba(201,162,39,0.15); }
+        .talk-btn.talk-accept { background: var(--gold); color: #1a1512; border-color: var(--gold); font-weight: bold; }
+        .talk-btn.talk-cancel { color: var(--ink-muted); }
+        .talk-btn.talk-end { background: var(--red); color: var(--ink); border-color: var(--red-bright); }
+        .talk-status { margin-top: 8px; font-size: 11px; color: var(--ink-muted); }
+        .talk-status.talk-active { color: var(--gold); font-weight: bold; }
+        .talk-status.disabled { opacity: 0.5; }
+        .inv-item img { width: 82px; height: 102px; object-fit: cover; border-radius: 5px; border: 1px solid var(--hairline); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+        .inv-item img:hover { transform: translateY(-3px); box-shadow: 0 6px 14px rgba(0,0,0,0.4); }
+        .inv-item.inv-item-map img { object-fit: contain; background: #0d0b08; }
+        .inv-item .inv-label { font-size: 11px; color: var(--ink-muted); margin-top: 6px; line-height: 1.3; }
+        #inventoryEmpty { color: var(--ink-muted); font-size: 13px; padding: 0 20px 16px; }
+
+        /* 확대보기 모달 (책 형태 페이지네이션) */
+        #zoomModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+        #zoomModal.open { display: flex; }
+        #zoomModalContent { background: #1a1512; border: 1px solid var(--hairline); border-radius: 6px; max-width: 480px; width: 100%; padding: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; max-height: 85vh; }
+        #zoomModalBg { background-size: cover; background-position: center; min-height: 340px; flex: 1; padding: 32px 28px; display: flex; align-items: flex-end; overflow: hidden; }
+        #zoomModalPage { background: rgba(0,0,0,0.6); padding: 26px 30px 26px 26px; border-radius: 6px; width: 100%; max-height: 44vh; overflow-y: auto; }
+        #zoomModalDocTitle { font-size: 11px; letter-spacing: 0.5px; color: var(--ink-muted); text-transform: uppercase; margin-bottom: 6px; }
+        #zoomModalPageHeading { font-family: 'Noto Serif KR', serif; font-size: 16px; font-weight: bold; color: var(--gold); margin: 0 0 12px; }
+        #zoomModalPageBody { font-size: 15px; line-height: 1.8; white-space: pre-wrap; color: var(--ink); margin: 0; }
+
+        /* 타임라인 전용 UI */
+        #zoomModalPageBody.timeline-list { white-space: normal; display: flex; flex-direction: column; gap: 0; }
+        .timeline-entry { display: flex; gap: 14px; padding-bottom: 16px; position: relative; }
+        .timeline-entry::before { content: ''; position: absolute; left: 5px; top: 16px; bottom: 0; width: 1px; background: var(--hairline); }
+        .timeline-entry:last-child::before { display: none; }
+        .timeline-entry:last-child { padding-bottom: 0; }
+        .timeline-dot { flex: 0 0 11px; width: 11px; height: 11px; border-radius: 50%; background: var(--gold); margin-top: 4px; box-shadow: 0 0 0 3px rgba(201,162,39,0.15); }
+        .timeline-body { flex: 1; min-width: 0; }
+        .timeline-time { font-family: 'Noto Serif KR', serif; font-size: 12px; font-weight: bold; color: var(--gold); margin-bottom: 4px; }
+        .timeline-event { font-size: 14px; line-height: 1.7; color: var(--ink); }
+        #zoomModalClose { position: absolute; top: 10px; right: 14px; background: rgba(0,0,0,0.4); border: none; color: var(--ink); font-size: 18px; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; z-index: 2; }
+
+        /* 페이지 넘기기 네비게이션 (여러 페이지일 때만 노출) */
+        #zoomModalNav { display: none; align-items: center; justify-content: space-between; padding: 10px 16px; background: rgba(0,0,0,0.4); border-top: 1px solid var(--hairline); }
+        #zoomModalNav.show { display: flex; }
+        #zoomModalNav button { background: var(--red); color: var(--ink); border: 1px solid var(--red-bright); border-radius: 4px; padding: 6px 14px; font-size: 13px; cursor: pointer; font-family: 'Noto Serif KR', serif; }
+        #zoomModalNav button:disabled { background: #3a3229; border-color: #3a3229; cursor: default; opacity: 0.5; }
+        #zoomPageIndicator { font-size: 12px; color: var(--ink-muted); }
+
+        #emptyState { padding: 48px 20px; text-align: center; color: var(--ink-muted); font-size: 13px; line-height: 1.6; }
+
+        @media (max-width: 720px) {
+            #mainLayout { flex-direction: column; }
+            #characterColumn { width: 100%; flex: none; flex-direction: row; overflow-x: auto; }
+            .participant-row { flex: 0 0 130px; }
+        }
+
+        /* 배경음악 컨트롤 (인벤토리 서랍 위에 떠 있도록 z-index를 더 높게) */
+        #bgmControl { position: fixed; bottom: 16px; right: 16px; z-index: 200; display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--hairline); border-radius: 20px; padding: 6px 12px; backdrop-filter: blur(6px); box-shadow: 0 8px 20px rgba(0,0,0,0.35); }
+        #bgmMuteBtn { background: none; border: none; color: var(--ink); font-size: 16px; cursor: pointer; padding: 2px; line-height: 1; }
+        #bgmVolume { width: 70px; accent-color: var(--gold); cursor: pointer; }
+        #bgmPlayHint { display: none; background: var(--gold); color: #1a1512; border: none; border-radius: 12px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: 'Noto Serif KR', serif; font-weight: bold; }
+
+        /* 엔딩 발표 버튼 (GM 전용) */
+        #revealEndingBtn { background: linear-gradient(160deg, #7a2323, #5a1919); color: var(--ink); border: 1px solid var(--red-bright); border-radius: 4px; padding: 9px 16px; cursor: pointer; font-size: 13px; font-family: 'Noto Serif KR', serif; font-weight: bold; transition: transform 0.15s; }
+        #revealEndingBtn:hover { transform: translateY(-1px); }
+        #viewResultsBtn { background: transparent; color: var(--gold); border: 1px solid var(--gold-dim); border-radius: 4px; padding: 9px 16px; cursor: pointer; font-size: 13px; font-family: 'Noto Serif KR', serif; transition: background 0.15s; }
+        #viewResultsBtn:hover { background: rgba(201,162,39,0.1); }
+
+        /* 상소문 스타일 엔딩 모달 */
+        #endingModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 300; align-items: center; justify-content: center; padding: 24px; overflow: hidden; }
+        #endingModal.open { display: flex; }
+
+        /* 기본(수수한 카드형) 테마 - visual_theme 지정이 없거나 인식 못 하는 값이면 이걸로 표시됨 */
+        #endingScroll {
+            position: relative; z-index: 1; width: 100%; max-width: 480px; max-height: 88vh; overflow-y: auto; overflow-x: hidden;
+            background: var(--panel, #201a15);
+            border: 1px solid var(--hairline, rgba(201,162,39,0.28));
+            border-radius: 10px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+            padding: 32px 28px 36px;
+            color: var(--ink, #e8dfd0);
+            background-image: linear-gradient(rgba(10,8,6,0.55), rgba(10,8,6,0.75)), var(--ending-scroll-image, none);
+            background-size: cover, cover;
+            background-position: center, center;
+            background-repeat: no-repeat, no-repeat;
+            background-attachment: fixed, fixed;
+        }
+        #endingModalClose { position: fixed; top: 32px; right: 32px; background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.3); color: #fff; font-size: 20px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; z-index: 310; }
+        #endingModalClose:hover { background: rgba(0,0,0,0.7); border-color: #fff; }
+        #endingScrollTitle { font-family: 'Noto Serif KR', serif; font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 18px; letter-spacing: 1px; border-bottom: 1px solid var(--hairline, rgba(201,162,39,0.28)); padding-bottom: 14px; }
+        #endingScrollBody { font-size: 15px; line-height: 1.9; white-space: pre-wrap; font-family: 'Noto Serif KR', serif; }
+
+        /* "상소문(joseon_scroll)" 테마 - endings.json의 visual_theme이 이 값일 때만 적용 */
+        #endingScroll.theme-joseon-scroll {
+            border: 6px solid #6b5c42; border-radius: 4px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6), inset 0 0 40px rgba(107,92,66,0.3);
+            padding: 36px 32px 40px;
+            color: #2a2117;
+            max-width: 520px;
+            /* 종이 톤(반투명) 위에 엔딩 일러스트를 깔되, background-attachment: fixed라 안쪽 글이 스크롤돼도
+               이미지는 화면상 같은 자리에 그대로 고정됨 (스크롤할 때마다 같이 밀려서 사라지던 문제 해결) */
+            background-image: linear-gradient(180deg, rgba(244,233,207,0.78), rgba(233,219,184,0.78)), var(--ending-scroll-image, none);
+        }
+        #endingScroll.theme-joseon-scroll #endingScrollTitle,
+        .theme-joseon-scroll #endingScrollTitle { border-bottom-color: rgba(42,33,23,0.3); }
+        #endingScroll.theme-joseon-scroll #endingScrollBody { line-height: 2; }
+
+        /* GM 전용 엔딩 선택 모달 */
+        #endingPickModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 250; align-items: center; justify-content: center; padding: 24px; }
+        #endingPickModal.open { display: flex; }
+        #endingPickContent { position: relative; width: 100%; max-width: 400px; max-height: 85vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 24px; backdrop-filter: blur(8px); }
+        #endingPickContent h3 { margin: 0 0 8px; font-family: 'Noto Serif KR', serif; color: var(--gold); }
+        .ending-pick-warning { font-size: 12px; color: #e08787; margin: 0 0 16px; }
+        #endingPickClose { position: sticky; top: 0; float: right; margin-left: 10px; background: rgba(0,0,0,0.4); border: none; color: var(--ink); font-size: 16px; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; }
+        #endingPickList { display: flex; flex-direction: column; gap: 8px; }
+        .ending-pick-item { background: rgba(0,0,0,0.3); border: 1px solid var(--hairline); border-radius: 4px; padding: 10px 14px; cursor: pointer; font-size: 14px; transition: border-color 0.15s, background 0.15s; }
+        .ending-pick-item:hover { border-color: var(--gold); background: rgba(201,162,39,0.1); }
+
+        /* 엔딩 판정 입력 폼 */
+        .ending-form-label { display: block; font-size: 12px; color: var(--ink-muted); margin: 14px 0 6px; }
+        #mostVotedSelect, #foxCountInput, #dalraeChoiceSelect, #seolhwaChoiceSelect {
+            width: 100%; padding: 8px 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--hairline);
+            border-radius: 4px; color: var(--ink); font-family: 'Noto Sans KR', sans-serif; font-size: 13px;
+        }
+        #moobaekExtraFields { border-top: 1px dashed var(--hairline); margin-top: 14px; padding-top: 4px; }
+        #computeEndingBtn { width: 100%; margin-top: 18px; padding: 10px; background: var(--gold); color: #1a1512; border: none; border-radius: 4px; font-family: 'Noto Serif KR', serif; font-weight: bold; cursor: pointer; }
+        #endingComputeResult { text-align: center; padding: 10px 0; }
+        #computedEndingTitle { color: var(--gold); font-family: 'Noto Serif KR', serif; }
+        #confirmRevealBtn { width: 100%; margin-top: 10px; padding: 10px; background: var(--red); color: var(--ink); border: 1px solid var(--red-bright); border-radius: 4px; font-family: 'Noto Serif KR', serif; font-weight: bold; cursor: pointer; }
+        #recomputeBtn { width: 100%; margin-top: 8px; padding: 8px; background: transparent; color: var(--ink-muted); border: 1px solid var(--hairline); border-radius: 4px; cursor: pointer; font-size: 12px; }
+        #manualPickDetails { margin-top: 18px; font-size: 12px; color: var(--ink-muted); }
+        #manualPickDetails summary { cursor: pointer; }
+        #manualPickDetails #endingPickList { margin-top: 10px; }
+
+        /* 이강 최다 득표일 때만 노출되는 문서 보유 여부 체크박스 */
+        #documentKeptField { display: none; margin-top: 14px; }
+        #documentKeptField label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-muted); cursor: pointer; }
+
+        /* 결과 발표 페이지 */
+        #resultsOverlay { display: none; position: fixed; inset: 0; background: rgba(8,6,5,0.92); z-index: 220; overflow-y: auto; padding: 40px 20px; }
+        #resultsOverlay.open { display: block; }
+        #resultsContent { max-width: 560px; margin: 0 auto; }
+        #resultsContent h2 { text-align: center; font-family: 'Noto Serif KR', serif; color: var(--gold); font-size: 26px; margin-bottom: 24px; }
+        #resultsContent h3 { font-family: 'Noto Serif KR', serif; color: var(--gold); font-size: 15px; margin: 24px 0 10px; border-bottom: 1px solid var(--hairline); padding-bottom: 8px; }
+        #resultsParticipantList { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 10px; }
+        .results-participant-chip { background: var(--panel); border: 1px solid var(--hairline); border-radius: 20px; padding: 8px 16px; font-size: 13px; }
+        #feedbackForm { background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px; padding: 20px; margin-top: 16px; }
+        #gmWaitingNotice { text-align: center; padding: 24px; margin-top: 16px; background: var(--panel); border: 1px dashed var(--hairline); border-radius: 8px; color: var(--ink-muted); font-size: 13px; }
+        #submissionStatusList { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; text-align: left; }
+        .submission-status-row { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.25); border-radius: 6px; padding: 8px 12px; font-size: 12px; }
+        .submission-status-row .ssr-name { color: var(--ink); }
+        .submission-status-row .ssr-badges { display: flex; gap: 6px; }
+        .ssr-badge { padding: 2px 8px; border-radius: 10px; font-size: 10px; }
+        .ssr-badge.done { background: rgba(80,180,100,0.25); color: #7fd99a; }
+        .ssr-badge.pending { background: rgba(201,106,90,0.2); color: #d98a7f; }
+        #reviewTextarea { width: 100%; height: 100px; resize: vertical; background: rgba(0,0,0,0.3); border: 1px solid var(--hairline); border-radius: 4px; color: var(--ink); padding: 10px; font-family: 'Noto Sans KR', sans-serif; font-size: 13px; line-height: 1.6; }
+        .feedback-row { margin-top: 16px; }
+        .feedback-label { display: block; font-size: 12px; color: var(--ink-muted); margin-bottom: 6px; }
+        #difficultyPicker { display: flex; gap: 8px; }
+        .difficulty-btn { flex: 1; padding: 8px; background: transparent; border: 1px solid var(--hairline); border-radius: 4px; color: var(--ink); cursor: pointer; font-family: 'Noto Serif KR', serif; }
+        .difficulty-btn.selected { background: var(--gold); color: #1a1512; border-color: var(--gold); font-weight: bold; }
+        #starPicker { font-size: 26px; letter-spacing: 4px; }
+        #starPicker .star { color: rgba(255,255,255,0.2); cursor: pointer; transition: color 0.1s; }
+        #starPicker .star.selected { color: var(--gold); }
+        #mvpPicker { display: flex; flex-wrap: wrap; gap: 8px; }
+        .mvp-pick-btn { padding: 6px 14px; background: transparent; border: 1px solid var(--hairline); border-radius: 16px; color: var(--ink); cursor: pointer; font-size: 12px; }
+        .mvp-pick-btn.selected { background: var(--gold); color: #1a1512; border-color: var(--gold); font-weight: bold; }
+        #submitFeedbackBtn { margin-top: 20px; width: 100%; padding: 12px; background: var(--red); color: var(--ink); border: 1px solid var(--red-bright); border-radius: 4px; font-family: 'Noto Serif KR', serif; font-size: 14px; cursor: pointer; }
+        #submitFeedbackBtn:hover { background: var(--red-bright); }
+        #submitFeedbackBtn:disabled { opacity: 0.5; cursor: default; }
+        #feedbackStatus { margin-top: 10px; font-size: 12px; color: var(--ink-muted); text-align: center; }
+        /* 여러 팀의 플레이 기록을 나열하는 게시판 */
+        #playthroughBoard { display: flex; flex-direction: column; gap: 16px; }
+        .playthrough-card { background: var(--panel); border: 1px solid var(--hairline); border-radius: 10px; padding: 18px; }
+        .playthrough-card .pt-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+        .playthrough-card .pt-date { font-size: 12px; color: var(--ink-muted); }
+        .playthrough-card .pt-ending { font-size: 12px; color: var(--gold); }
+        .playthrough-card .pt-members { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+        .pt-member { background: rgba(0,0,0,0.25); border-radius: 6px; padding: 10px 12px; }
+        .pt-member .pm-head { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+        .pt-member .pm-name { color: var(--gold); font-weight: bold; }
+        .pt-member .pm-mvp-badge { background: var(--gold); color: #1a1512; font-size: 10px; font-weight: bold; padding: 2px 7px; border-radius: 8px; margin-left: 6px; }
+        .pt-member .pm-meta { color: var(--ink-muted); font-size: 11px; }
+        .pt-member .pm-review { font-size: 13px; line-height: 1.6; white-space: pre-wrap; margin-top: 4px; }
+
+        #backToBoardBtn { display: block; width: 100%; margin-top: 24px; padding: 12px; background: var(--gold); color: #1a1512; border: none; border-radius: 4px; font-family: 'Noto Serif KR', serif; font-weight: bold; cursor: pointer; }
+        #backToBoardBtn:hover { background: #e0bc3a; }
+    </style>
+</head>
+<body>
+
+    <div id="topbar">
+        <div class="topbar-left">
+            <h2 id="roomTitleGame">게임 진행 중</h2>
+            <div class="info">내 캐릭터: <span id="myCharDisplay">-</span></div>
+        </div>
+        <div id="phaseBlock">
+            <div id="phaseName">-</div>
+            <div id="phaseTimer">--:--</div>
+            <div id="phaseNote"></div>
+        </div>
+        <div class="topbar-right">
+            <button id="advancePhaseBtn" style="display:none;">다음 단계로 넘어가기 ▶</button>
+            <button id="revealEndingBtn" style="display:none;">🏮 엔딩 발표</button>
+            <button id="viewResultsBtn" style="display:none;">📜 결과 다시 보기</button>
+            <button id="noteToggleBtn">📝 메모</button>
+            <button id="statusBoardToggleBtn" style="display:none;">📋 현황판</button>
+            <button id="inventoryToggleBtn">🎒 인벤토리</button>
+        </div>
+    </div>
+    <div id="gmStatusBanner" style="display:none;"></div>
+
+    <!-- GM 전용: 참여자별 오브젝트 획득 현황판 -->
+    <div id="statusBoardPanel">
+        <h4>📋 참여자별 획득 오브젝트 (id)</h4>
+        <div id="statusBoardList"></div>
+    </div>
+
+    <!-- GM 전용: 이윤의 심문 신청 승인/거절 모달 -->
+    <div id="interrogationModal">
+        <div id="interrogationModalContent">
+            <h3></h3>
+            <p id="interrogationModalText"></p>
+            <div id="interrogationModalButtons">
+                <button id="interrogationAcceptBtn">수락</button>
+                <button id="interrogationRejectBtn">거절</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 개인 메모 패널 (다른 사람에게는 절대 안 보임) -->
+    <div id="notePanel">
+        <h4>📝 내 메모 (게임 종료까지 유지)</h4>
+        <textarea id="noteTextarea" placeholder="알아낸 정보, 추리 등을 자유롭게 적어두세요..."></textarea>
+        <div id="noteSaveStatus"></div>
+    </div>
+
+    <div id="mainLayout">
+        <div id="boardColumn">
+            <div class="board-frame">
+                <!-- 지도 클릭 방식 보드 -->
+                <div id="mapWrap">
+                    <img id="mapImage" src="" alt="지도">
+                    <div id="mapHotspots"></div>
+                </div>
+                <div id="interviewChipRow"></div>
+                <div id="mapDetailPanel">
+                    <div id="mapDetailTitle">장소를 클릭해서 단서를 확인하세요</div>
+                    <div id="mapDetailGrid"></div>
+                </div>
+            </div>
+        </div>
+        <div id="characterColumn">
+            <h3>참여자</h3>
+            <div id="characterBoard"></div>
+        </div>
+    </div>
+
+    <!-- 인벤토리 패널 -->
+    <div id="inventoryPanel">
+        <div id="inventoryHeader">
+            <h3>🎒 내 인벤토리</h3>
+            <span id="inventoryCount">0개</span>
+        </div>
+        <div id="inventoryItems"></div>
+        <div id="inventoryEmpty" style="display:none;">아직 획득한 오브젝트가 없어요.</div>
+    </div>
+
+    <!-- 확대보기 모달 -->
+    <div id="zoomModal">
+        <div id="zoomModalContent">
+            <button id="zoomModalClose">✕</button>
+            <div id="zoomModalBg">
+                <div id="zoomModalPage">
+                    <div id="zoomModalDocTitle" style="display:none;"></div>
+                    <h4 id="zoomModalPageHeading" style="display:none;"></h4>
+                    <div id="zoomModalPageBody"></div>
+                </div>
+            </div>
+            <div id="zoomModalNav">
+                <button id="zoomPrevBtn">‹ 이전</button>
+                <span id="zoomPageIndicator">1 / 1</span>
+                <button id="zoomNextBtn">다음 ›</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 상소문 스타일 엔딩 모달 -->
+    <div id="endingModal">
+        <button id="endingModalClose">✕</button>
+        <div id="endingScroll">
+            <div id="endingScrollTitle"></div>
+            <div id="endingScrollBody"></div>
+        </div>
+    </div>
+
+    <!-- GM 전용: 엔딩 선택 모달 -->
+    <div id="endingPickModal">
+        <div id="endingPickContent">
+            <button id="endingPickClose">✕</button>
+            <h3>🏮 엔딩 판정</h3>
+            <p class="ending-pick-warning">⚠️ 발표하면 되돌릴 수 없고, 전원에게 즉시 공개됩니다.</p>
+
+            <!-- 1단계: 판정값 입력 -->
+            <div id="endingComputeForm">
+                <label class="ending-form-label">최다 득표자</label>
+                <select id="mostVotedSelect">
+                    <option value="">-- 선택 --</option>
+                    <option value="연이">연이</option>
+                    <option value="달래">달래</option>
+                    <option value="이강">이강</option>
+                    <option value="이윤">이윤</option>
+                    <option value="설화">설화</option>
+                    <option value="무백">무백</option>
+                </select>
+
+                <div id="documentKeptField">
+                    <label><input type="checkbox" id="documentKeptCheckbox"> 이강이 이 시점까지 낡은 문서를 보유하고 있다</label>
+                </div>
+
+                <div id="moobaekExtraFields" style="display:none;">
+                    <label class="ending-form-label">구미호 지목 수 (추가 정보에 "설화가 구미호다"라고 적은 인원)</label>
+                    <input type="number" id="foxCountInput" min="0" max="6" value="0">
+
+                    <label class="ending-form-label">달래의 선택</label>
+                    <select id="dalraeChoiceSelect">
+                        <option value="no_seal">봉인하지 않는다</option>
+                        <option value="seal">봉인한다</option>
+                    </select>
+
+                    <label class="ending-form-label">설화의 선택 (구미호 지목 3명 미만이거나 달래가 "봉인하지 않는다"를 골랐을 때만 적용)</label>
+                    <select id="seolhwaChoiceSelect">
+                        <option value="observe">방관</option>
+                        <option value="intervene">개입 (도주)</option>
+                    </select>
+                </div>
+
+                <button id="computeEndingBtn">🧮 엔딩 계산하기</button>
+            </div>
+
+            <!-- 2단계: 계산 결과 확인 -->
+            <div id="endingComputeResult" style="display:none;">
+                <p>계산된 엔딩: <strong id="computedEndingTitle"></strong></p>
+                <button id="confirmRevealBtn">이 엔딩으로 발표하기</button>
+                <button id="recomputeBtn">다시 계산하기</button>
+            </div>
+
+            <!-- 예비 경로: 직접 목록에서 고르기 -->
+            <details id="manualPickDetails">
+                <summary>직접 목록에서 고르기 (자동 계산이 안 맞을 때)</summary>
+                <div id="endingPickList"></div>
+            </details>
+        </div>
+    </div>
+
+    <!-- 결과 발표 페이지 (엔딩 공개 후) -->
+    <div id="resultsOverlay">
+        <div id="resultsContent">
+            <h2>🎬 이야기의 끝</h2>
+            <div id="resultsParticipantList"></div>
+
+            <div id="gmWaitingNotice" style="display:none;">
+                참여자들이 후기를 작성하는 중입니다. 모두 제출하면 결과가 자동으로 공개됩니다...
+                <div id="submissionStatusList"></div>
+            </div>
+
+            <div id="feedbackForm">
+                <h3>후기를 남겨주세요</h3>
+                <textarea id="reviewTextarea" placeholder="이번 게임에 대한 소감을 자유롭게 적어주세요..."></textarea>
+
+                <div class="feedback-row">
+                    <span class="feedback-label">체감 난이도</span>
+                    <div id="difficultyPicker">
+                        <button data-value="상" class="difficulty-btn">상</button>
+                        <button data-value="중" class="difficulty-btn">중</button>
+                        <button data-value="하" class="difficulty-btn">하</button>
+                    </div>
+                </div>
+
+                <div class="feedback-row">
+                    <span class="feedback-label">별점</span>
+                    <div id="starPicker">
+                        <span data-value="1" class="star">★</span>
+                        <span data-value="2" class="star">★</span>
+                        <span data-value="3" class="star">★</span>
+                        <span data-value="4" class="star">★</span>
+                        <span data-value="5" class="star">★</span>
+                    </div>
+                </div>
+
+                <div class="feedback-row">
+                    <span class="feedback-label">MVP 투표</span>
+                    <div id="mvpPicker"></div>
+                </div>
+
+                <button id="submitFeedbackBtn">제출하기</button>
+                <div id="feedbackStatus"></div>
+            </div>
+
+            <div id="resultsRevealed" style="display:none;">
+                <h3>📜 지금까지의 플레이 기록</h3>
+                <div id="playthroughBoard"></div>
+            </div>
+
+            <button id="backToBoardBtn" style="display:none;">🗺️ 보드로 돌아가기</button>
+        </div>
+    </div>
+
+    <!-- 배경음악 컨트롤 -->
+    <audio id="bgmAudio" preload="auto"></audio>
+    <div id="bgmControl">
+        <button id="bgmMuteBtn" title="음소거/해제">🔊</button>
+        <input type="range" id="bgmVolume" min="0" max="1" step="0.05" value="0.4" title="음량 조절">
+        <button id="bgmPlayHint" title="음악 재생">▶ 음악 재생</button>
+    </div>
+
+    <script type="module" src="/static/js/game.js"></script>
+</body>
+</html>
