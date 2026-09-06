@@ -1,5 +1,6 @@
 import { getCharacterImageUrl } from './utils.js';
 import { setupBgm } from './bgm.js';
+import { createVoiceMesh } from './voice.js';
 
 const socket = io(); // 현재 접속한 주소(로컬/ngrok 등)로 자동 연결
 const regex = /^[가-힣0-9]+$/; // 한글과 숫자만 허용
@@ -10,6 +11,7 @@ const roomId = sessionStorage.getItem('roomId');
 
 let roomCharacters = [];
 let currentGm = null;
+let roomUsers = []; // 방에 있는 전체 유저(GM 포함) 닉네임 목록 - 음성 채널 계산용
 
 const DEFAULT_BG_URL = "url('/data/scenario_01/images/bg.png')";
 
@@ -59,24 +61,28 @@ socket.on('room_joined', (data) => {
     console.log('📩 [수신: room_joined]', data);
     roomCharacters = data.characters || [];
     currentGm = data.gm;
+    roomUsers = data.users || roomUsers;
     if (data.scenario_id) {
         sessionStorage.setItem('scenarioId', data.scenario_id);
         setBackgroundForScenario(data.scenario_id);
     }
     renderLobby(data.users, data.gm, data.selections);
     renderCharacterCards(data.selections);
+    voiceMesh.reconcile();
 });
 
 // 2. 다른 사람 입장/선택 등으로 방 상태가 갱신될 때 (방장 및 모든 유저 공용)
 socket.on('update_room_state', (data) => {
     console.log('📩 [수신: update_room_state] users:', data.users, 'gm:', data.gm, 'selections:', data.selections);
     currentGm = data.gm;
+    roomUsers = data.users || roomUsers;
     if (data.scenario_id) {
         sessionStorage.setItem('scenarioId', data.scenario_id);
         setBackgroundForScenario(data.scenario_id);
     }
     renderLobby(data.users, data.gm, data.selections);
     renderCharacterCards(data.selections); // 캐릭터 선택 현황도 함께 갱신
+    voiceMesh.reconcile();
 });
 
 // 3. 방 스냅샷 복원
@@ -93,12 +99,14 @@ socket.on('room_snapshot_sync', (snapshot) => {
 
     roomCharacters = snapshot.characters || roomCharacters;
     currentGm = snapshot.gm;
+    roomUsers = snapshot.users || roomUsers;
     if (snapshot.scenario_id) {
         sessionStorage.setItem('scenarioId', snapshot.scenario_id);
         setBackgroundForScenario(snapshot.scenario_id);
     }
     renderLobby(snapshot.users, snapshot.gm, snapshot.selections);
     renderCharacterCards(snapshot.selections);
+    voiceMesh.reconcile();
 });
 
 function renderCharacterCards(selections) {
@@ -275,3 +283,42 @@ document.getElementById('nextBtn')?.addEventListener('click', () => {
 });
 
 document.getElementById('leaveBtn')?.addEventListener('click', leaveRoom);
+
+// ── 음성통화 (voice.js 공용 모듈 사용) ─────────────────────────────
+// 로비엔 "밀담" 개념이 없어서 규칙이 단순함 - 방에 있는 모두(GM 포함)와 항상 연결.
+function getDesiredVoicePeers() {
+    return roomUsers.filter(n => n !== nickname);
+}
+
+const voiceMesh = createVoiceMesh({
+    socket,
+    getRoomId: () => roomId,
+    getNickname: () => nickname,
+    getDesiredPeers: getDesiredVoicePeers,
+    onStatusChange: updateVoiceStatusUI,
+});
+
+function updateVoiceStatusUI() {
+    const bar = document.getElementById('voiceStatusBar');
+    if (!bar) return;
+
+    if (voiceMesh.isMicDenied()) {
+        bar.style.display = 'flex';
+        document.getElementById('voiceStatusText').innerText = '🎙️ 마이크 권한이 없어 음성통화를 쓸 수 없습니다';
+        document.getElementById('voiceMuteBtn').style.display = 'none';
+        return;
+    }
+
+    const peerCount = voiceMesh.getPeerCount();
+    if (peerCount === 0) {
+        bar.style.display = 'none';
+        return;
+    }
+
+    bar.style.display = 'flex';
+    document.getElementById('voiceMuteBtn').style.display = '';
+    document.getElementById('voiceStatusText').innerText = `🎙️ 로비 음성 연결됨 (${peerCount}명)`;
+    document.getElementById('voiceMuteBtn').innerText = voiceMesh.isMuted() ? '🔇 음소거 중' : '🔊 음소거';
+}
+
+document.getElementById('voiceMuteBtn')?.addEventListener('click', () => voiceMesh.toggleMute());

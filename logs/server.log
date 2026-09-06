@@ -17254,3 +17254,130 @@
 2026-09-07 02:04:18 [WARNING] game.backend.sockets.game_socket: ⚠️ [disconnect] 방장(모찌) 연결 끊김 → 임시 방장으로 지정할 접속 중인 참여자가 없음
 2026-09-07 02:04:18 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌'], gm=모찌, selections={}
 2026-09-07 02:04:18 [INFO] game.backend.sockets.game_socket: 클라이언트 연결 끊김: 5BkD6GSvjgDODbw8AAAB
+2026-09-07 04:15:54 [INFO] game.__main__: 🚀 서버 시작 (포트 8000) - cloudflared 서비스가 외부 접속을 처리합니다.
+2026-09-07 04:16:00 [INFO] uvicorn.access: 1.230.46.228:0 - "GET / HTTP/1.1" 200
+2026-09-07 04:16:00 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /api/scenarios HTTP/1.1" 200
+2026-09-07 04:16:01 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9YJU HTTP/1.1" 200
+2026-09-07 04:16:01 [INFO] game.backend.sockets.game_socket: 클라이언트 연결됨: libII3Tdfa04SOE7AAAB
+2026-09-07 04:16:01 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1u9YNE&sid=qbEsjulLlfELyzgeAAAA HTTP/1.1" 200
+2026-09-07 04:16:01 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9YNE.0&sid=qbEsjulLlfELyzgeAAAA HTTP/1.1" 200
+2026-09-07 04:16:01 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9YP5&sid=qbEsjulLlfELyzgeAAAA HTTP/1.1" 200
+2026-09-07 04:16:04 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /room HTTP/1.1" 200
+2026-09-07 04:16:04 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9ZIt HTTP/1.1" 200
+2026-09-07 04:16:05 [INFO] game.backend.sockets.game_socket: 클라이언트 연결됨: muDrkE8fxcCrzO7nAAAD
+2026-09-07 04:16:05 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1u9ZKi&sid=plS1TKoJ6n_zLaYbAAAC HTTP/1.1" 200
+2026-09-07 04:16:05 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9ZKj&sid=plS1TKoJ6n_zLaYbAAAC HTTP/1.1" 200
+2026-09-07 04:16:05 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1u9ZMY.0&sid=plS1TKoJ6n_zLaYbAAAC HTTP/1.1" 200
+2026-09-07 04:16:05 [INFO] game.backend.sockets.handlers.room_handler: 🔁 [reconnect_room] 모찌의 기존 세션(sid=libII3Tdfa04SOE7AAAB) 종료 - 새 연결로 대체됨
+2026-09-07 04:16:05 [INFO] game.backend.sockets.handlers.room_handler: 🔌 [reconnect_room] 모찌 → 방 '어른이집' 소켓 룸 입장 완료
+2026-09-07 04:16:05 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9ZMY&sid=plS1TKoJ6n_zLaYbAAAC HTTP/1.1" 200
+2026-09-07 04:16:05 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌'], gm=모찌, selections={}
+2026-09-07 04:16:05 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9ZOl&sid=plS1TKoJ6n_zLaYbAAAC HTTP/1.1" 200
+2026-09-07 04:16:05 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9ZQa&sid=plS1TKoJ6n_zLaYbAAAC HTTP/1.1" 200
+2026-09-07 04:16:11 [INFO] uvicorn.access: 1.230.46.228:0 - "GET / HTTP/1.1" 200
+2026-09-07 04:16:11 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /api/scenarios HTTP/1.1" 200
+2026-09-07 04:16:11 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9a-z HTTP/1.1" 200
+2026-09-07 04:16:12 [INFO] game.backend.sockets.game_socket: 클라이언트 연결됨: sXydgplZ8dWzK-4yAAAF
+2026-09-07 04:16:12 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1u9b1p&sid=AAw63UQXKLSClluRAAAE HTTP/1.1" 200
+2026-09-07 04:16:12 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9b1q&sid=AAw63UQXKLSClluRAAAE HTTP/1.1" 200
+2026-09-07 04:16:12 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/images/bg.png HTTP/1.1" 304
+2026-09-07 04:16:12 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9b3F&sid=AAw63UQXKLSClluRAAAE HTTP/1.1" 200
+2026-09-07 04:16:16 [INFO] game.backend.sockets.handlers.room_handler: DEBUG: 입장 시도 - 방:어른이집, 닉네임:모찌1
+2026-09-07 04:16:16 [INFO] game.backend.sockets.handlers.room_handler: DEBUG: 입장 시도 - 방:어른이집, 닉네임:모찌1
+2026-09-07 04:16:16 [INFO] game.backend.sockets.handlers.room_handler: 🔁 [join_room] 기존 닉네임(모찌1)으로 재접속 처리
+2026-09-07 04:16:16 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌', '모찌1'], gm=모찌, selections={'모찌1': None}
+2026-09-07 04:16:16 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /room HTTP/1.1" 200
+2026-09-07 04:16:16 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /room HTTP/1.1" 200
+2026-09-07 04:16:16 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /static/js/room.js HTTP/1.1" 200
+2026-09-07 04:16:16 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /static/js/utils.js HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /static/js/bgm.js HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9cGP HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] game.backend.sockets.game_socket: 클라이언트 연결됨: ZUVNE_5HVTZjk8f7AAAH
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1u9cHp&sid=5rZb_mAXRNEIauDKAAAG HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9cHq&sid=5rZb_mAXRNEIauDKAAAG HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1u9cJJ.0&sid=5rZb_mAXRNEIauDKAAAG HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] game.backend.sockets.handlers.room_handler: 🔁 [reconnect_room] 모찌1의 기존 세션(sid=sXydgplZ8dWzK-4yAAAF) 종료 - 새 연결로 대체됨
+2026-09-07 04:16:17 [INFO] game.backend.sockets.handlers.room_handler: 🔌 [reconnect_room] 모찌1 → 방 '어른이집' 소켓 룸 입장 완료
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9cJJ&sid=5rZb_mAXRNEIauDKAAAG HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌', '모찌1'], gm=모찌, selections={'모찌1': None}
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9cKy&sid=5rZb_mAXRNEIauDKAAAG HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/images/character/leegang.png HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/images/character/yeoni.png HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9cMK&sid=5rZb_mAXRNEIauDKAAAG HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/images/character/leeyoon.png HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/images/character/moobaek.png HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/images/character/seolhwa.png HTTP/1.1" 200
+2026-09-07 04:16:17 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/images/character/dalrae.png HTTP/1.1" 200
+2026-09-07 04:16:21 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌', '모찌1'], gm=모찌, selections={'모찌1': '이강'}
+2026-09-07 04:16:22 [INFO] game.backend.sockets.handlers.game_handler: 🎒 [next_phase] 모찌1(이강)에게 기본 아이템 4개 지급
+2026-09-07 04:16:22 [INFO] game.backend.sockets.handlers.game_handler: 🎒 [next_phase] GM(모찌)에게 기본 아이템 2개 지급 (정보+룰북)
+2026-09-07 04:16:22 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /game HTTP/1.1" 200
+2026-09-07 04:16:22 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /game HTTP/1.1" 200
+2026-09-07 04:16:22 [INFO] game.backend.sockets.game_socket: 클라이언트 연결 끊김: ZUVNE_5HVTZjk8f7AAAH
+2026-09-07 04:16:22 [INFO] game.backend.sockets.game_socket: 🧹 [disconnect] sid_to_room에서 정리됨: {'room_id': '어른이집', 'nickname': '모찌1'}
+2026-09-07 04:16:22 [INFO] game.backend.sockets.game_socket: 클라이언트 연결 끊김: muDrkE8fxcCrzO7nAAAD
+2026-09-07 04:16:22 [INFO] game.backend.sockets.game_socket: 🧹 [disconnect] sid_to_room에서 정리됨: {'room_id': '어른이집', 'nickname': '모찌'}
+2026-09-07 04:16:22 [WARNING] game.backend.sockets.game_socket: ⚠️ [disconnect] 방장(모찌) 연결 끊김 → 임시 방장으로 지정할 접속 중인 참여자가 없음
+2026-09-07 04:16:22 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌', '모찌1'], gm=모찌, selections={'모찌1': '이강'}
+2026-09-07 04:16:22 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /static/js/game.js HTTP/1.1" 200
+2026-09-07 04:16:22 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9dgP HTTP/1.1" 200
+2026-09-07 04:16:22 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9dgV HTTP/1.1" 200
+2026-09-07 04:16:22 [INFO] game.backend.sockets.game_socket: 클라이언트 연결됨: DKpVhAG3PH2CAQ0aAAAK
+2026-09-07 04:16:22 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1u9dhn&sid=YsWusIy86LLAnl0GAAAI HTTP/1.1" 200
+2026-09-07 04:16:22 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9dhn.0&sid=YsWusIy86LLAnl0GAAAI HTTP/1.1" 200
+2026-09-07 04:16:22 [INFO] game.backend.sockets.game_socket: 클라이언트 연결됨: 42KYWzDrHKZcSdayAAAL
+2026-09-07 04:16:22 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1u9diK&sid=Z7r5z1dAZ9IJBEfrAAAJ HTTP/1.1" 200
+2026-09-07 04:16:22 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9diK.0&sid=Z7r5z1dAZ9IJBEfrAAAJ HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1u9djN&sid=YsWusIy86LLAnl0GAAAI HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] game.backend.sockets.handlers.room_handler: 🔌 [reconnect_room] 모찌1 → 방 '어른이집' 소켓 룸 입장 완료
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9djM&sid=YsWusIy86LLAnl0GAAAI HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌', '모찌1'], gm=모찌, selections={'모찌1': '이강'}
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1u9dkJ&sid=Z7r5z1dAZ9IJBEfrAAAJ HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] game.backend.sockets.handlers.room_handler: 🔌 [reconnect_room] 모찌 → 방 '어른이집' 소켓 룸 입장 완료
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9dkI&sid=Z7r5z1dAZ9IJBEfrAAAJ HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌', '모찌1'], gm=모찌, selections={'모찌1': '이강'}
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/map_config.json HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/special_ability_config.default.json HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9dl9&sid=YsWusIy86LLAnl0GAAAI HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9dme&sid=YsWusIy86LLAnl0GAAAI HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/audio/reading.mp3 HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1u9dmr&sid=Z7r5z1dAZ9IJBEfrAAAJ HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/special_ability_config.json HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/special_ability_config.default.json HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/images/map.png HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/map_config.json HTTP/1.1" 200
+2026-09-07 04:16:23 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /data/scenario_01/special_ability_config.json HTTP/1.1" 200
+2026-09-07 04:16:42 [INFO] game.backend.sockets.game_socket: 클라이언트 연결 끊김: 42KYWzDrHKZcSdayAAAL
+2026-09-07 04:16:42 [INFO] game.backend.sockets.game_socket: 🧹 [disconnect] sid_to_room에서 정리됨: {'room_id': '어른이집', 'nickname': '모찌'}
+2026-09-07 04:16:42 [INFO] game.backend.sockets.game_socket: 👑 [disconnect] 방장(모찌) 연결 끊김 → 모찌1를 임시 방장으로 지정 (페이즈 넘기기 권한만)
+2026-09-07 04:16:42 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌', '모찌1'], gm=모찌, selections={'모찌1': '이강'}
+2026-09-07 04:16:42 [INFO] game.backend.sockets.game_socket: 클라이언트 연결 끊김: libII3Tdfa04SOE7AAAB
+2026-09-07 04:16:44 [INFO] game.backend.sockets.game_socket: 클라이언트 연결 끊김: sXydgplZ8dWzK-4yAAAF
+2026-09-07 04:16:44 [INFO] game.backend.sockets.game_socket: 클라이언트 연결 끊김: DKpVhAG3PH2CAQ0aAAAK
+2026-09-07 04:16:44 [INFO] game.backend.sockets.game_socket: 🧹 [disconnect] sid_to_room에서 정리됨: {'room_id': '어른이집', 'nickname': '모찌1'}
+2026-09-07 04:19:24 [INFO] game.__main__: 🚀 서버 시작 (포트 8000) - cloudflared 서비스가 외부 접속을 처리합니다.
+2026-09-07 04:19:25 [INFO] uvicorn.access: 1.230.46.228:0 - "GET / HTTP/1.1" 200
+2026-09-07 04:19:25 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1uAKN6 HTTP/1.1" 200
+2026-09-07 04:19:25 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /api/scenarios HTTP/1.1" 200
+2026-09-07 04:19:26 [INFO] game.backend.sockets.game_socket: 클라이언트 연결됨: AJK-jwSMuPw05QolAAAB
+2026-09-07 04:19:26 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1uAKOU&sid=JuqXSEJ4vH5WdfBdAAAA HTTP/1.1" 200
+2026-09-07 04:19:26 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1uAKOV&sid=JuqXSEJ4vH5WdfBdAAAA HTTP/1.1" 200
+2026-09-07 04:19:26 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1uAKQI&sid=JuqXSEJ4vH5WdfBdAAAA HTTP/1.1" 200
+2026-09-07 04:19:26 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1uAKUu&sid=JuqXSEJ4vH5WdfBdAAAA HTTP/1.1" 200
+2026-09-07 04:19:29 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /room HTTP/1.1" 200
+2026-09-07 04:19:29 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1uALM8 HTTP/1.1" 200
+2026-09-07 04:19:30 [INFO] game.backend.sockets.game_socket: 클라이언트 연결됨: QFU3o_5jOXD_A0HsAAAD
+2026-09-07 04:19:30 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1uALNQ&sid=TVFd_cz3HpvwsCVkAAAC HTTP/1.1" 200
+2026-09-07 04:19:30 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1uALNR&sid=TVFd_cz3HpvwsCVkAAAC HTTP/1.1" 200
+2026-09-07 04:19:30 [INFO] uvicorn.access: 1.230.46.228:0 - "POST /socket.io/?EIO=4&transport=polling&t=Q1uALOl.0&sid=TVFd_cz3HpvwsCVkAAAC HTTP/1.1" 200
+2026-09-07 04:19:30 [INFO] game.backend.sockets.handlers.room_handler: 🔁 [reconnect_room] 모찌의 기존 세션(sid=AJK-jwSMuPw05QolAAAB) 종료 - 새 연결로 대체됨
+2026-09-07 04:19:30 [INFO] game.backend.sockets.handlers.room_handler: 🔌 [reconnect_room] 모찌 → 방 '어른이집' 소켓 룸 입장 완료
+2026-09-07 04:19:30 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1uALOl&sid=TVFd_cz3HpvwsCVkAAAC HTTP/1.1" 200
+2026-09-07 04:19:30 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌'], gm=모찌, selections={}
+2026-09-07 04:19:30 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1uALQL&sid=TVFd_cz3HpvwsCVkAAAC HTTP/1.1" 200
+2026-09-07 04:19:30 [INFO] uvicorn.access: 1.230.46.228:0 - "GET /socket.io/?EIO=4&transport=polling&t=Q1uALRc&sid=TVFd_cz3HpvwsCVkAAAC HTTP/1.1" 200
+2026-09-07 04:19:37 [INFO] game.backend.sockets.game_socket: 클라이언트 연결 끊김: QFU3o_5jOXD_A0HsAAAD
+2026-09-07 04:19:37 [INFO] game.backend.sockets.game_socket: 🧹 [disconnect] sid_to_room에서 정리됨: {'room_id': '어른이집', 'nickname': '모찌'}
+2026-09-07 04:19:37 [WARNING] game.backend.sockets.game_socket: ⚠️ [disconnect] 방장(모찌) 연결 끊김 → 임시 방장으로 지정할 접속 중인 참여자가 없음
+2026-09-07 04:19:37 [INFO] game.backend.sockets.game_socket: 📡 [emit_room_state] room_id=어른이집 로 브로드캐스트 → users=['모찌'], gm=모찌, selections={}
+2026-09-07 04:19:37 [INFO] game.backend.sockets.game_socket: 클라이언트 연결 끊김: AJK-jwSMuPw05QolAAAB
