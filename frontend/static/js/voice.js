@@ -182,6 +182,17 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
         muted = !muted;
         console.log(`🎙️ [voice] 마이크 ${muted ? '끔' : '켬'} (연결된 상대: ${Object.keys(peers).join(', ') || '없음'})`);
         applyMuteStateToLocalTracks();
+
+        // 실제로 각 상대에게 나가는 송신 트랙(sender)의 상태까지 검증 - 여기가 true로 나오면
+        // "내 쪽 코드는 맞게 짰는데 실제 전송이 안 막히는" 상황이라 다른 원인을 봐야 함
+        Object.entries(peers).forEach(([peerNick, entry]) => {
+            entry.pc.getSenders().forEach(sender => {
+                if (sender.track && sender.track.kind === 'audio') {
+                    console.log(`🎙️ [voice] → ${peerNick}로 나가는 송신 트랙 상태: enabled=${sender.track.enabled} (muted=${muted}면 false여야 정상)`);
+                }
+            });
+        });
+
         notifyStatusChange();
     }
 
@@ -196,6 +207,14 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
     function getPeerVolume(peerNickname) {
         return peerVolumes[peerNickname] ?? 1;
     }
+
+    // 소켓이 끊겼다 재연결되면(네트워크 순단 등), 이미 죽었을 가능성이 높은 기존 연결들을 전부 정리함.
+    // reconcile()은 "peers에 이미 있으면 재연결 시도 안 함"으로 판단하기 때문에, 이 정리를 안 해두면
+    // 재연결 후에도 죽은 연결 정보가 남아서 새로 안 걸리는 문제가 생김.
+    socket.on('disconnect', () => {
+        console.log('🎙️ [voice] 소켓 연결 끊김 - 기존 피어 연결 전부 정리 (재연결 시 새로 맺어짐)');
+        Object.keys(peers).forEach(closePeer);
+    });
 
     return {
         reconcile,

@@ -80,12 +80,15 @@ export function createGmChat({ socket, getRoomId, getNickname, getCurrentGm, get
         document.getElementById('gmChatInputRow').style.display = 'flex';
 
         const msgs = threads[targetThread] || [];
-        messagesEl.innerHTML = msgs.map(m => `
-            <div class="gm-chat-msg ${m.sender_role}">
-                <span class="gcm-text">${escapeHtml(m.text)}</span>
-                <span class="gcm-time">${formatTime(m.at)}</span>
-            </div>
-        `).join('');
+        messagesEl.innerHTML = msgs.map(m => {
+            const isMine = m.sender_nickname === nickname; // 보낸 사람이 "나"인지 - 역할(GM/참여자)이 아니라 이 기준으로 좌우 결정
+            return `
+                <div class="gm-chat-msg ${isMine ? 'mine' : 'theirs'}">
+                    <span class="gcm-text">${escapeHtml(m.text)}</span>
+                    <span class="gcm-time">${formatTime(m.at)}</span>
+                </div>
+            `;
+        }).join('');
         messagesEl.scrollTop = messagesEl.scrollHeight;
 
         if (!isGm) delete unread[nickname];
@@ -109,17 +112,28 @@ export function createGmChat({ socket, getRoomId, getNickname, getCurrentGm, get
 
     // ── 소켓 수신 ─────────────────────────────
     socket.on('gm_chat_history', (data) => {
+        console.log('📮 [gmchat] 내역 수신:', data.threads, '| isGm =', getCurrentGm() === getNickname());
         threads = data.threads || {};
         render();
     });
 
     socket.on('gm_chat_message', (data) => {
         const { thread_owner, message } = data;
+        console.log('📮 [gmchat] 새 메시지 수신:', data, '| 내 닉네임:', getNickname(), '| GM:', getCurrentGm());
         if (!threads[thread_owner]) threads[thread_owner] = [];
         threads[thread_owner].push(message);
 
         const nickname = getNickname();
         const isGm = getCurrentGm() === nickname;
+
+        // 참여자가 보낸 새 문의인데 GM 패널이 닫혀있으면, 놓치지 않게 자동으로 열어서 바로 보여줌
+        if (isGm && message.sender_nickname !== nickname && !panelOpen) {
+            panelOpen = true;
+            openThread = thread_owner;
+            const panel = document.getElementById('gmChatPanel');
+            if (panel) panel.classList.add('open');
+        }
+
         const isViewingThisThread = panelOpen && (openThread === thread_owner || !isGm);
         if (!isViewingThisThread && message.sender_nickname !== nickname) {
             unread[thread_owner] = true;
@@ -129,6 +143,7 @@ export function createGmChat({ socket, getRoomId, getNickname, getCurrentGm, get
 
     // ── DOM 이벤트 연결 (해당 페이지에 마크업이 있을 때만 동작) ─────────────────────────────
     const toggleBtn = document.getElementById('gmChatToggleBtn');
+    console.log('📮 [gmchat] 초기화 - #gmChatToggleBtn 발견:', !!toggleBtn);
     if (toggleBtn) {
         toggleBtn.addEventListener('click', () => {
             panelOpen = !panelOpen;
