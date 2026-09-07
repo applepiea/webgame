@@ -116,11 +116,15 @@
             display: none; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
             align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--hairline);
             border-radius: 24px; padding: 8px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-            backdrop-filter: blur(8px); z-index: 150; font-size: 12px;
+            backdrop-filter: blur(8px); z-index: 150; font-size: 12px; transition: border-color 0.2s;
         }
+        #voiceStatusBar.mic-off { border-color: var(--red-bright); }
         #voiceStatusText { color: var(--ink-muted); }
-        #voiceMuteBtn { background: transparent; border: 1px solid var(--hairline); border-radius: 14px; padding: 4px 12px; color: var(--gold); cursor: pointer; font-size: 12px; font-family: 'Noto Sans KR', sans-serif; }
-        #voiceMuteBtn:hover { background: rgba(201,162,39,0.1); }
+        #voiceMuteBtn { border: 1px solid var(--hairline); border-radius: 14px; padding: 4px 12px; cursor: pointer; font-size: 12px; font-family: 'Noto Sans KR', sans-serif; font-weight: bold; }
+        #voiceMuteBtn.mic-on { background: rgba(58,122,90,0.2); border-color: #3a7a5a; color: #6fd99a; }
+        #voiceMuteBtn.mic-on:hover { background: rgba(58,122,90,0.3); }
+        #voiceMuteBtn.mic-off { background: var(--red); border-color: var(--red-bright); color: var(--ink); }
+        #voiceMuteBtn.mic-off:hover { background: var(--red-bright); }
         .voice-volume-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
         .voice-volume-icon { font-size: 11px; opacity: 0.7; }
         .voice-volume-slider { width: 70px; height: 3px; accent-color: var(--gold); cursor: pointer; }

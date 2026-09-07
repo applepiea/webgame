@@ -655,6 +655,26 @@ function renderCharacterBoard() {
 
         container.appendChild(row);
     });
+
+    // GM은 캐릭터가 없어서 위 루프(selections 기준)에 안 잡히므로, 별도로 음량 조절만 가능한 간단한 행을 추가
+    // (밀담/아이템 등 캐릭터 전용 기능은 없고, 그냥 "GM 목소리 크기 조절"만을 위한 행)
+    if (currentGm && currentGm !== nickname) {
+        const gmRow = document.createElement('div');
+        gmRow.className = 'participant-row gm-voice-row';
+        gmRow.innerHTML = `
+            <div class="pname">👑 GM</div>
+            <div class="pnick">${currentGm}</div>
+            <div class="voice-volume-row">
+                <span class="voice-volume-icon">🔉</span>
+                <input type="range" class="voice-volume-slider" data-target="${currentGm}"
+                    min="0" max="100" value="${Math.round(voiceMesh.getPeerVolume(currentGm) * 100)}">
+            </div>
+        `;
+        gmRow.querySelector('.voice-volume-slider').addEventListener('input', (e) => {
+            voiceMesh.setPeerVolume(currentGm, Number(e.target.value) / 100);
+        });
+        container.appendChild(gmRow);
+    }
 }
 
 
@@ -1598,7 +1618,13 @@ function updateVoiceStatusUI() {
     document.getElementById('voiceStatusText').innerText = findMyConversation()
         ? `🎙️ 밀담 상대와 음성 연결됨`
         : `🎙️ 전체 채널 음성 연결됨 (${peerCount}명)`;
-    document.getElementById('voiceMuteBtn').innerText = voiceMesh.isMuted() ? '🎤 마이크 꺼짐' : '🎤 마이크 끄기';
+
+    const muted = voiceMesh.isMuted();
+    const muteBtn = document.getElementById('voiceMuteBtn');
+    muteBtn.innerText = muted ? '🎤 마이크 꺼짐' : '🎤 마이크 켜짐';
+    muteBtn.classList.toggle('mic-off', muted);
+    muteBtn.classList.toggle('mic-on', !muted);
+    bar.classList.toggle('mic-off', muted);
 }
 
 document.getElementById('voiceMuteBtn').addEventListener('click', () => voiceMesh.toggleMute());

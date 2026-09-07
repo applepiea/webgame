@@ -72,11 +72,19 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
         return pc;
     }
 
+    // 트랙을 피어 연결에 추가하기 직전에, 지금 muted 상태를 다시 한번 강제로 맞춰줌
+    // (여러 연결이 같은 트랙 객체를 공유하긴 하지만, 혹시 모를 타이밍 문제에 대비한 이중 안전장치)
+    function applyMuteStateToLocalTracks() {
+        if (!localStream) return;
+        localStream.getAudioTracks().forEach(track => { track.enabled = !muted; });
+        console.log(`🎙️ [voice] 로컬 트랙 상태 재적용 - muted=${muted}, track.enabled=${!muted}`);
+    }
+
     async function ensureLocalStream() {
         if (localStream || micPermissionDenied) return localStream;
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            localStream.getAudioTracks().forEach(track => { track.enabled = !muted; });
+            applyMuteStateToLocalTracks();
         } catch (err) {
             console.warn('🎙️ [voice] 마이크 권한이 없어 음성통화를 사용할 수 없습니다:', err.message);
             micPermissionDenied = true;
@@ -88,6 +96,7 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
     async function initiatePeer(targetNickname) {
         const pc = createPeerConnection(targetNickname);
         peers[targetNickname] = { pc, audioEl: null };
+        applyMuteStateToLocalTracks(); // addTrack 직전에 재확인
         localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
         const offer = await pc.createOffer();
@@ -139,6 +148,7 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
 
         const pc = createPeerConnection(data.from);
         peers[data.from] = { pc, audioEl: null };
+        applyMuteStateToLocalTracks(); // addTrack 직전에 재확인
         localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
         await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
@@ -170,9 +180,8 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
 
     function toggleMute() {
         muted = !muted;
-        if (localStream) {
-            localStream.getAudioTracks().forEach(track => { track.enabled = !muted; });
-        }
+        console.log(`🎙️ [voice] 마이크 ${muted ? '끔' : '켬'} (연결된 상대: ${Object.keys(peers).join(', ') || '없음'})`);
+        applyMuteStateToLocalTracks();
         notifyStatusChange();
     }
 

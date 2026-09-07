@@ -339,7 +339,13 @@ function updateVoiceStatusUI() {
     bar.style.display = 'flex';
     document.getElementById('voiceMuteBtn').style.display = '';
     document.getElementById('voiceStatusText').innerText = `🎙️ 로비 음성 연결됨 (${peerCount}명)`;
-    document.getElementById('voiceMuteBtn').innerText = voiceMesh.isMuted() ? '🎤 마이크 꺼짐' : '🎤 마이크 끄기';
+
+    const muted = voiceMesh.isMuted();
+    const muteBtn = document.getElementById('voiceMuteBtn');
+    muteBtn.innerText = muted ? '🎤 마이크 꺼짐' : '🎤 마이크 켜짐';
+    muteBtn.classList.toggle('mic-off', muted);
+    muteBtn.classList.toggle('mic-on', !muted);
+    bar.classList.toggle('mic-off', muted);
 }
 
 document.getElementById('voiceMuteBtn')?.addEventListener('click', () => voiceMesh.toggleMute());
