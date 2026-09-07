@@ -226,18 +226,18 @@
         .gm-voice-row { padding: 10px 12px; border-top: 1px dashed var(--hairline); }
         .gm-voice-row .pname { color: var(--gold); }
 
-        /* GM 문의 채팅 */
+        /* GM 문의 채팅 - topbar 버튼(엔딩발표/메모 사이)이라 다른 topbar 버튼들과 같은 톤으로 맞춤 */
         #gmChatToggleBtn {
-            position: fixed; bottom: 16px; right: 16px; z-index: 150;
-            background: var(--panel); border: 1px solid var(--hairline); border-radius: 20px;
-            padding: 8px 14px; color: var(--gold); cursor: pointer; font-size: 12px;
-            font-family: 'Noto Sans KR', sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            background: transparent; color: var(--gold); border: 1px solid var(--gold-dim); border-radius: 4px;
+            padding: 9px 16px; cursor: pointer; font-size: 13px; font-family: 'Noto Serif KR', serif;
+            transition: background 0.15s, transform 0.15s;
         }
+        #gmChatToggleBtn:hover { background: rgba(201,162,39,0.1); transform: translateY(-1px); }
         #gmChatToggleBtn.has-unread { border-color: var(--red-bright); color: #ff8080; animation: gmChatPulse 1.5s infinite; }
-        @keyframes gmChatPulse { 0%, 100% { box-shadow: 0 8px 24px rgba(0,0,0,0.4); } 50% { box-shadow: 0 0 0 4px rgba(156,47,47,0.3); } }
+        @keyframes gmChatPulse { 0%, 100% { box-shadow: none; } 50% { box-shadow: 0 0 0 4px rgba(156,47,47,0.3); } }
 
         #gmChatPanel {
-            display: none; position: fixed; bottom: 64px; right: 16px; width: 300px; max-height: 420px;
+            display: none; position: fixed; top: 72px; right: 24px; width: 300px; max-height: 420px;
             background: var(--panel); border: 1px solid var(--hairline); border-radius: 10px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 149; flex-direction: column; overflow: hidden;
         }
@@ -452,6 +452,7 @@
             <button id="advancePhaseBtn" style="display:none;">다음 단계로 넘어가기 ▶</button>
             <button id="revealEndingBtn" style="display:none;">🏮 엔딩 발표</button>
             <button id="viewResultsBtn" style="display:none;">📜 결과 다시 보기</button>
+            <button id="gmChatToggleBtn"></button>
             <button id="noteToggleBtn">📝 메모</button>
             <button id="statusBoardToggleBtn" style="display:none;">📋 현황판</button>
             <button id="inventoryToggleBtn">🎒 인벤토리</button>
@@ -632,8 +633,7 @@
         <button id="voiceMuteBtn"></button>
     </div>
 
-    <!-- GM 문의 채팅 (텍스트, 완전 비공개 1:1) -->
-    <button id="gmChatToggleBtn"></button>
+    <!-- GM 문의 채팅 (텍스트, 완전 비공개 1:1) - 여는 버튼은 topbar(엔딩발표/메모 사이)에 있음 -->
     <div id="gmChatPanel">
         <div id="gmChatHeader">
             <button id="gmChatBackBtn" style="display:none;">←</button>

@@ -22,7 +22,9 @@ const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }]; // 무료 공개
 export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeers, onStatusChange }) {
     let localStream = null;
     let micPermissionDenied = false;
-    let muted = false;
+    // 음소거 상태는 room.html(로비)과 game.html(게임 화면)이 완전히 별개 페이지라 서로 JS 상태를 공유
+    // 못 하므로, sessionStorage에 저장해뒀다가 페이지가 바뀌어도 그대로 이어지게 함
+    let muted = sessionStorage.getItem('voiceMuted') === 'true';
     const peers = {}; // nickname -> { pc: RTCPeerConnection, audioEl: HTMLAudioElement }
     const peerVolumes = {}; // nickname -> 0.0~1.0 (개인별 음량 설정, 연결이 끊겼다 다시 붙어도 유지됨)
 
@@ -80,17 +82,31 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
         console.log(`🎙️ [voice] 로컬 트랙 상태 재적용 - muted=${muted}, track.enabled=${!muted}`);
     }
 
-    async function ensureLocalStream() {
-        if (localStream || micPermissionDenied) return localStream;
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            applyMuteStateToLocalTracks();
-        } catch (err) {
-            console.warn('🎙️ [voice] 마이크 권한이 없어 음성통화를 사용할 수 없습니다:', err.message);
-            micPermissionDenied = true;
+    let localStreamPromise = null; // getUserMedia()가 진행 중일 때, 동시에 또 호출돼도 같은 요청을 공유하기 위함
+
+    // ensureLocalStream()이 동시에 여러 번 불려도(reconcile()과 voice_call_offer 수신이 같은 타이밍에
+    // 겹치는 경우 등), getUserMedia()가 끝나기 전엔 localStream이 아직 null이라 "없으니 새로 열자"를
+    // 각자 따로 실행해서 서로 다른 마이크 스트림이 2개 생기는 경쟁 상태(race condition)가 있었음.
+    // → "진행 중인 요청 자체"를 저장해뒀다가 공유해서, 몇 번을 동시에 불러도 실제 getUserMedia() 호출은 1번만 나가게 함.
+    function ensureLocalStream() {
+        if (localStream) return Promise.resolve(localStream);
+        if (micPermissionDenied) return Promise.resolve(null);
+        if (!localStreamPromise) {
+            localStreamPromise = navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+                .then(stream => {
+                    localStream = stream;
+                    applyMuteStateToLocalTracks();
+                    notifyStatusChange();
+                    return stream;
+                })
+                .catch(err => {
+                    console.warn('🎙️ [voice] 마이크 권한이 없어 음성통화를 사용할 수 없습니다:', err.message);
+                    micPermissionDenied = true;
+                    notifyStatusChange();
+                    return null;
+                });
         }
-        notifyStatusChange();
-        return localStream;
+        return localStreamPromise;
     }
 
     async function initiatePeer(targetNickname) {
@@ -115,6 +131,7 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
 
     async function reconcile() {
         const desired = getDesiredPeers();
+        console.log(`🎙️ [voice] reconcile() 호출 - 원하는 상대: [${desired.join(', ')}], 현재 연결: [${Object.keys(peers).join(', ')}]`);
         if (desired.length === 0 && Object.keys(peers).length === 0) return; // 할 일 없으면 마이크 권한도 안 물어봄
 
         await ensureLocalStream();
@@ -180,6 +197,7 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
 
     function toggleMute() {
         muted = !muted;
+        sessionStorage.setItem('voiceMuted', String(muted)); // room/game 페이지 넘어가도 이어지도록 저장
         console.log(`🎙️ [voice] 마이크 ${muted ? '끔' : '켬'} (연결된 상대: ${Object.keys(peers).join(', ') || '없음'})`);
         applyMuteStateToLocalTracks();
 
@@ -214,6 +232,16 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
     socket.on('disconnect', () => {
         console.log('🎙️ [voice] 소켓 연결 끊김 - 기존 피어 연결 전부 정리 (재연결 시 새로 맺어짐)');
         Object.keys(peers).forEach(closePeer);
+    });
+
+    // 재연결(또는 최초 연결)될 때마다, 예전에 마이크 권한이 막혔던 상태였어도 다시 한번 시도해봄
+    // (일시적인 오류로 막혔던 거였을 수 있어서 - 진짜 브라우저 차원에서 영구 거부된 거면 다시 시도해도 조용히 또 실패할 뿐, 해는 없음)
+    socket.on('connect', () => {
+        if (micPermissionDenied) {
+            console.log('🎙️ [voice] 재연결 - 이전에 막혔던 마이크 권한 다시 시도');
+        }
+        micPermissionDenied = false;
+        localStreamPromise = null; // 이전 시도가 실패해서 남아있었을 수 있는 캐시도 같이 초기화
     });
 
     return {
