@@ -1,6 +1,7 @@
 import { getCharacterImageUrl } from './utils.js';
 import { setupBgm } from './bgm.js';
 import { createVoiceMesh } from './voice.js';
+import { createGmChat } from './gmchat.js';
 
 const socket = io(); // 현재 접속한 주소(로컬/ngrok 등)로 자동 연결
 const regex = /^[가-힣0-9]+$/; // 한글과 숫자만 허용
@@ -69,6 +70,7 @@ socket.on('room_joined', (data) => {
     renderLobby(data.users, data.gm, data.selections);
     renderCharacterCards(data.selections);
     voiceMesh.reconcile();
+    gmChat.render();
 });
 
 // 2. 다른 사람 입장/선택 등으로 방 상태가 갱신될 때 (방장 및 모든 유저 공용)
@@ -83,6 +85,7 @@ socket.on('update_room_state', (data) => {
     renderLobby(data.users, data.gm, data.selections);
     renderCharacterCards(data.selections); // 캐릭터 선택 현황도 함께 갱신
     voiceMesh.reconcile();
+    gmChat.render();
 });
 
 // 3. 방 스냅샷 복원
@@ -107,6 +110,7 @@ socket.on('room_snapshot_sync', (snapshot) => {
     renderLobby(snapshot.users, snapshot.gm, snapshot.selections);
     renderCharacterCards(snapshot.selections);
     voiceMesh.reconcile();
+    gmChat.render();
 });
 
 function renderCharacterCards(selections) {
@@ -349,3 +353,13 @@ function updateVoiceStatusUI() {
 }
 
 document.getElementById('voiceMuteBtn')?.addEventListener('click', () => voiceMesh.toggleMute());
+
+// ── GM 문의 채팅 (gmchat.js 공용 모듈 사용) - 로비에서도 미리 물어볼 수 있게 ─────────────────────────────
+const gmChat = createGmChat({
+    socket,
+    getRoomId: () => roomId,
+    getNickname: () => nickname,
+    getCurrentGm: () => currentGm,
+    getDisplayName: null, // 로비엔 아직 캐릭터 배정 전이라 닉네임만 표시
+});
+gmChat.requestHistory();
