@@ -3,6 +3,7 @@ from .handlers.room_handler import register_room_handlers, rooms, sid_to_room
 from .handlers.object_handler import register_object_handlers
 from .handlers.conversation_handler import register_conversation_handlers
 from .handlers.ending_handler import register_ending_handlers
+from .handlers.gm_chat_handler import register_gm_chat_handlers
 from backend.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -70,3 +71,4 @@ def register_socket_events(sio):
   register_object_handlers(sio, emit_room_state)
   register_conversation_handlers(sio, emit_room_state)
   register_ending_handlers(sio, emit_room_state)
+  register_gm_chat_handlers(sio, emit_room_state)

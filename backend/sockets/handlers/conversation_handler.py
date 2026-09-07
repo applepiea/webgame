@@ -423,11 +423,13 @@ def register_conversation_handlers(sio, emit_room_state_func):
   # 알아서 재계산해서 필요한 연결은 새로 걸고, 더 이상 필요없는 연결은 스스로 끊음.
 
   def _are_both_valid_players(room_data, nickname, target_nickname):
-    """엉뚱한 사람한테 신호를 보내는 것만 막는 최소한의 검증 (둘 다 이 방의 캐릭터 보유자인지)"""
+    """엉뚱한 사람한테 신호를 보내는 것만 막는 최소한의 검증 (둘 다 이 방에 실제로 있는 사람인지).
+    selections(캐릭터를 고른 사람만 들어있음)가 아니라 users(GM 포함 전체)로 확인해야
+    GM도 방 전체 음성 채널에 낄 수 있음 - selections로 체크하면 GM 신호가 전부 막혀버림."""
     return (
         nickname != target_nickname
-        and nickname in room_data["selections"]
-        and target_nickname in room_data["selections"]
+        and nickname in room_data["users"]
+        and target_nickname in room_data["users"]
     )
 
   @sio.event

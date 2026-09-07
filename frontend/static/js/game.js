@@ -149,6 +149,7 @@ function applyState() {
     renderCharacterBoard();
     renderInventory();
     voiceMesh.reconcile();
+    renderGmChatUI();
 
     // GM에게만 엔딩 발표 버튼 노출 (이미 발표됐으면 숨김)
     const revealBtn = document.getElementById('revealEndingBtn');
@@ -1601,3 +1602,137 @@ function updateVoiceStatusUI() {
 }
 
 document.getElementById('voiceMuteBtn').addEventListener('click', () => voiceMesh.toggleMute());
+
+// ── GM 문의 채팅 (텍스트, GM ↔ 참여자 1:1, 완전 비공개) ─────────────────────────────
+// 음성은 전체 채널/밀담용이고, 이건 그거랑 별개로 "GM한테 조용히 뭔가 물어볼 때" 쓰는 텍스트 채널.
+let gmChatThreads = {};   // 참여자면 자기 스레드만, GM이면 { 닉네임: [메시지,...] } 전체
+let gmChatOpenThread = null; // GM이 지금 펼쳐서 보고 있는 스레드 (참여자는 항상 자기 자신)
+const gmChatUnread = {};  // 닉네임 -> 안 읽은 메시지 있는지 (배지 표시용)
+let gmChatPanelOpen = false;
+
+socket.emit('request_gm_chat_history', { room_id: roomId, nickname });
+
+socket.on('gm_chat_history', (data) => {
+    gmChatThreads = data.threads || {};
+    renderGmChatUI();
+});
+
+socket.on('gm_chat_message', (data) => {
+    const { thread_owner, message } = data;
+    if (!gmChatThreads[thread_owner]) gmChatThreads[thread_owner] = [];
+    gmChatThreads[thread_owner].push(message);
+
+    const isViewingThisThread = gmChatPanelOpen && (gmChatOpenThread === thread_owner || currentGm !== nickname);
+    if (!isViewingThisThread && message.sender_nickname !== nickname) {
+        gmChatUnread[thread_owner] = true;
+    }
+    renderGmChatUI();
+});
+
+function formatGmChatTime(unixSeconds) {
+    return new Date(unixSeconds * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderGmChatUI() {
+    const isGm = currentGm === nickname; // 방장 위임 등으로 바뀔 수 있어서 매번 다시 확인
+    const toggleBtn = document.getElementById('gmChatToggleBtn');
+    const hasAnyUnread = Object.values(gmChatUnread).some(Boolean);
+    toggleBtn.classList.toggle('has-unread', hasAnyUnread);
+    toggleBtn.innerText = isGm ? '📮 문의함' : '💬 GM에게 문의';
+
+    if (!gmChatPanelOpen) return;
+
+    const threadListEl = document.getElementById('gmChatThreadList');
+    const messagesEl = document.getElementById('gmChatMessages');
+    const backBtn = document.getElementById('gmChatBackBtn');
+    const titleEl = document.getElementById('gmChatTitle');
+
+    if (isGm && !gmChatOpenThread) {
+        // GM용 - 스레드 목록 화면
+        titleEl.innerText = '문의함';
+        backBtn.style.display = 'none';
+        messagesEl.style.display = 'none';
+        document.getElementById('gmChatInputRow').style.display = 'none';
+        threadListEl.style.display = 'block';
+        threadListEl.innerHTML = '';
+
+        const threadOwners = Object.keys(gmChatThreads).filter(n => (gmChatThreads[n] || []).length > 0);
+        if (threadOwners.length === 0) {
+            threadListEl.innerHTML = '<div class="gm-chat-empty">아직 문의가 없습니다.</div>';
+        }
+        threadOwners.forEach(owner => {
+            const msgs = gmChatThreads[owner] || [];
+            const last = msgs[msgs.length - 1];
+            const item = document.createElement('div');
+            item.className = 'gm-chat-thread-item' + (gmChatUnread[owner] ? ' unread' : '');
+            item.innerHTML = `
+                <div class="gct-name">${selections[owner] || owner} (${owner})${gmChatUnread[owner] ? ' 🔴' : ''}</div>
+                <div class="gct-preview">${last ? last.text : ''}</div>
+            `;
+            item.onclick = () => {
+                gmChatOpenThread = owner;
+                delete gmChatUnread[owner];
+                renderGmChatUI();
+            };
+            threadListEl.appendChild(item);
+        });
+        return;
+    }
+
+    // 메시지 화면 (참여자는 항상 여기, GM은 특정 스레드를 열었을 때)
+    const targetThread = isGm ? gmChatOpenThread : nickname;
+    titleEl.innerText = isGm ? `${selections[targetThread] || targetThread} (${targetThread})` : 'GM에게 문의';
+    backBtn.style.display = isGm ? 'inline-block' : 'none';
+    threadListEl.style.display = 'none';
+    messagesEl.style.display = 'flex';
+    document.getElementById('gmChatInputRow').style.display = 'flex';
+
+    const msgs = gmChatThreads[targetThread] || [];
+    messagesEl.innerHTML = msgs.map(m => `
+        <div class="gm-chat-msg ${m.sender_role}">
+            <span class="gcm-text">${escapeHtml(m.text)}</span>
+            <span class="gcm-time">${formatGmChatTime(m.at)}</span>
+        </div>
+    `).join('');
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    if (!isGm) delete gmChatUnread[nickname];
+}
+
+document.getElementById('gmChatToggleBtn').addEventListener('click', () => {
+    gmChatPanelOpen = !gmChatPanelOpen;
+    document.getElementById('gmChatPanel').classList.toggle('open', gmChatPanelOpen);
+    if (!gmChatPanelOpen) gmChatOpenThread = null; // 닫을 때 목록 화면으로 리셋 (GM 기준)
+    renderGmChatUI();
+});
+
+document.getElementById('gmChatCloseBtn').addEventListener('click', () => {
+    gmChatPanelOpen = false;
+    gmChatOpenThread = null;
+    document.getElementById('gmChatPanel').classList.remove('open');
+});
+
+document.getElementById('gmChatBackBtn').addEventListener('click', () => {
+    gmChatOpenThread = null;
+    renderGmChatUI();
+});
+
+function sendGmChatMessage() {
+    const input = document.getElementById('gmChatInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const isGm = currentGm === nickname;
+    const payload = { room_id: roomId, nickname, text };
+    if (isGm) {
+        if (!gmChatOpenThread) return;
+        payload.target_nickname = gmChatOpenThread;
+    }
+    socket.emit('send_gm_chat_message', payload);
+    input.value = '';
+}
+
+document.getElementById('gmChatSendBtn').addEventListener('click', sendGmChatMessage);
+document.getElementById('gmChatInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sendGmChatMessage();
+});
