@@ -584,6 +584,15 @@ function renderCharacterBoard() {
             }
         }
 
+        // 다른 참여자 목소리 크기 개별 조절 (내 카드엔 안 뜸 - 내 목소리를 내가 조절할 이유는 없으니까)
+        const volumeHtml = isMe ? '' : `
+            <div class="voice-volume-row">
+                <span class="voice-volume-icon">🔉</span>
+                <input type="range" class="voice-volume-slider" data-target="${userNickname}"
+                    min="0" max="100" value="${Math.round(voiceMesh.getPeerVolume(userNickname) * 100)}">
+            </div>
+        `;
+
         row.innerHTML = `
             <img src="${imagePath}" alt="${charName}" onerror="this.src='/data/default_avatar.png'">
             <div class="pname">${charName}</div>
@@ -591,12 +600,22 @@ function renderCharacterBoard() {
             <div class="pcount">${ownedItems.length}개 획득</div>
             ${talkControlHtml}
             ${interrogateHtml}
+            ${volumeHtml}
             <div class="participant-items${isOpen ? ' open' : ''}">${thumbsHtml}</div>
         `;
 
-        // 행 클릭 시 펼침/접힘 토글 (썸네일/밀담 버튼 클릭은 예외 처리)
+        // 음량 슬라이더 조작 시 voice.js에 바로 반영 (행 클릭 토글이랑 안 겹치게 별도 처리)
+        const volumeSlider = row.querySelector('.voice-volume-slider');
+        if (volumeSlider) {
+            volumeSlider.addEventListener('click', (e) => e.stopPropagation());
+            volumeSlider.addEventListener('input', (e) => {
+                voiceMesh.setPeerVolume(userNickname, Number(e.target.value) / 100);
+            });
+        }
+
+        // 행 클릭 시 펼침/접힘 토글 (썸네일/밀담 버튼/음량 슬라이더 클릭은 예외 처리)
         row.addEventListener('click', (e) => {
-            if (e.target.closest('.participant-items img') || e.target.closest('.talk-btn')) return;
+            if (e.target.closest('.participant-items img') || e.target.closest('.talk-btn') || e.target.closest('.voice-volume-row')) return;
             expandedParticipant = isOpen ? null : userNickname;
             renderCharacterBoard();
         });
@@ -1578,7 +1597,7 @@ function updateVoiceStatusUI() {
     document.getElementById('voiceStatusText').innerText = findMyConversation()
         ? `🎙️ 밀담 상대와 음성 연결됨`
         : `🎙️ 전체 채널 음성 연결됨 (${peerCount}명)`;
-    document.getElementById('voiceMuteBtn').innerText = voiceMesh.isMuted() ? '🔇 음소거 중' : '🔊 음소거';
+    document.getElementById('voiceMuteBtn').innerText = voiceMesh.isMuted() ? '🎤 마이크 꺼짐' : '🎤 마이크 끄기';
 }
 
 document.getElementById('voiceMuteBtn').addEventListener('click', () => voiceMesh.toggleMute());

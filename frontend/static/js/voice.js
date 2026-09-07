@@ -24,6 +24,7 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
     let micPermissionDenied = false;
     let muted = false;
     const peers = {}; // nickname -> { pc: RTCPeerConnection, audioEl: HTMLAudioElement }
+    const peerVolumes = {}; // nickname -> 0.0~1.0 (개인별 음량 설정, 연결이 끊겼다 다시 붙어도 유지됨)
 
     function notifyStatusChange() {
         if (onStatusChange) onStatusChange();
@@ -35,6 +36,7 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
             audioEl = document.createElement('audio');
             audioEl.id = `voiceAudio-${partnerNickname}`;
             audioEl.autoplay = true;
+            audioEl.volume = peerVolumes[partnerNickname] ?? 1; // 이전에 조절해둔 음량이 있으면 그대로 적용
             const container = document.getElementById('voiceAudioContainer');
             if (container) container.appendChild(audioEl);
         }
@@ -174,11 +176,25 @@ export function createVoiceMesh({ socket, getRoomId, getNickname, getDesiredPeer
         notifyStatusChange();
     }
 
+    // 특정 상대의 목소리 크기만 개별 조절 (0.0~1.0). 지금 연결 안 돼있어도 저장해뒀다가,
+    // 나중에 연결되면(오디오 엘리먼트 새로 생길 때) 그대로 적용됨.
+    function setPeerVolume(peerNickname, volume) {
+        peerVolumes[peerNickname] = volume;
+        const audioEl = document.getElementById(`voiceAudio-${peerNickname}`);
+        if (audioEl) audioEl.volume = volume;
+    }
+
+    function getPeerVolume(peerNickname) {
+        return peerVolumes[peerNickname] ?? 1;
+    }
+
     return {
         reconcile,
         toggleMute,
         isMuted: () => muted,
         getPeerCount: () => Object.keys(peers).length,
         isMicDenied: () => micPermissionDenied,
+        setPeerVolume,
+        getPeerVolume,
     };
 }

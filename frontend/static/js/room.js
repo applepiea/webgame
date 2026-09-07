@@ -214,6 +214,27 @@ function renderLobby(users, gm, selections) {
             li.appendChild(kickBtn);
         }
 
+        // 나 자신이 아니면 음성 음량 슬라이더 추가 (로비에서도 방 전체 음성 채널이 켜져있으므로)
+        if (user !== nickname) {
+            const volumeWrap = document.createElement('div');
+            volumeWrap.className = 'voice-volume-row';
+            const icon = document.createElement('span');
+            icon.className = 'voice-volume-icon';
+            icon.innerText = '🔉';
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.className = 'voice-volume-slider';
+            slider.min = '0';
+            slider.max = '100';
+            slider.value = String(Math.round(voiceMesh.getPeerVolume(user) * 100));
+            slider.addEventListener('input', (e) => {
+                voiceMesh.setPeerVolume(user, Number(e.target.value) / 100);
+            });
+            volumeWrap.appendChild(icon);
+            volumeWrap.appendChild(slider);
+            li.appendChild(volumeWrap);
+        }
+
         list.appendChild(li);
     });
 
@@ -318,7 +339,7 @@ function updateVoiceStatusUI() {
     bar.style.display = 'flex';
     document.getElementById('voiceMuteBtn').style.display = '';
     document.getElementById('voiceStatusText').innerText = `🎙️ 로비 음성 연결됨 (${peerCount}명)`;
-    document.getElementById('voiceMuteBtn').innerText = voiceMesh.isMuted() ? '🔇 음소거 중' : '🔊 음소거';
+    document.getElementById('voiceMuteBtn').innerText = voiceMesh.isMuted() ? '🎤 마이크 꺼짐' : '🎤 마이크 끄기';
 }
 
 document.getElementById('voiceMuteBtn')?.addEventListener('click', () => voiceMesh.toggleMute());
